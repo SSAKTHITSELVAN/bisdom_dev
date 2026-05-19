@@ -93,6 +93,6 @@ export const getLeadConversation = (leadId) => {
   return adminRequest({ method: 'get', url: `/admin/conversations/${leadId}` })
 }
 
-export const getGrowthData = () => {
-  return adminRequest({ method: 'get', url: '/admin/growth-data' })
+export const getGrowthData = (params = {}) => {
+  return adminRequest({ method: 'get', url: '/admin/growth-data', params })
 }

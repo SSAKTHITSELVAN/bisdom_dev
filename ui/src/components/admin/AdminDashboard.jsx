@@ -8,25 +8,39 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
   const [growthData, setGrowthData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState('month')
+  const [loadingGrowth, setLoadingGrowth] = useState(false)
   const { handleAuthError } = useAdminAuth()
 
   useEffect(() => {
-    loadData()
+    loadStats()
   }, [])
 
-  const loadData = async () => {
+  useEffect(() => {
+    loadGrowthData()
+  }, [period])
+
+  const loadStats = async () => {
     try {
-      const [statsResponse, growthResponse] = await Promise.all([
-        getAdminStats(),
-        getGrowthData()
-      ])
+      const statsResponse = await getAdminStats()
       setStats(statsResponse.data)
-      setGrowthData(growthResponse.data)
     } catch (error) {
-      console.error('Failed to load data:', error)
+      console.error('Failed to load stats:', error)
       handleAuthError(error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadGrowthData = async () => {
+    setLoadingGrowth(true)
+    try {
+      const growthResponse = await getGrowthData({ period })
+      setGrowthData(growthResponse.data)
+    } catch (error) {
+      console.error('Failed to load growth data:', error)
+    } finally {
+      setLoadingGrowth(false)
     }
   }
 
@@ -73,54 +87,177 @@ export default function AdminDashboard() {
     </div>
   )
 
-  const LineChart = ({ data, dates, label, color, height = 200 }) => {
+  const BarChart = ({ data, labels, color, height = 240 }) => {
     if (!data || data.length === 0) return null
 
     const max = Math.max(...data, 1)
-    const points = data.map((val, idx) => ({
-      x: (idx / (data.length - 1)) * 100,
-      y: 100 - (val / max) * 100
-    }))
-
-    const pathData = points
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-      .join(' ')
-
-    const areaData = `${pathData} L 100 100 L 0 100 Z`
+    const barCount = data.length
+    const barWidth = 100 / barCount
+    const showAllLabels = barCount <= 14  // Show all labels only if 14 or fewer bars
 
     return (
-      <div style={{ width: '100%', height }}>
-        <svg
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          style={{ width: '100%', height: '100%' }}
-        >
-          {/* Area fill */}
-          <path
-            d={areaData}
-            fill={`${color}20`}
-            strokeWidth="0"
-          />
-          {/* Line */}
-          <path
-            d={pathData}
-            fill="none"
-            stroke={color}
-            strokeWidth="0.5"
-            vectorEffect="non-scaling-stroke"
-          />
-          {/* Points */}
-          {points.map((p, i) => (
-            <circle
-              key={i}
-              cx={p.x}
-              cy={p.y}
-              r="1"
-              fill={color}
-              vectorEffect="non-scaling-stroke"
-            />
+      <div style={{ width: '100%', position: 'relative' }}>
+        {/* Chart area */}
+        <div style={{
+          width: '100%',
+          height,
+          display: 'flex',
+          alignItems: 'flex-end',
+          gap: barCount > 30 ? '1px' : '4px',
+          padding: '0 8px'
+        }}>
+          {data.map((value, idx) => {
+            const barHeight = max > 0 ? (value / max) * 100 : 0
+            return (
+              <div
+                key={idx}
+                style={{
+                  flex: 1,
+                  height: `${barHeight}%`,
+                  minHeight: value > 0 ? '2px' : '0',
+                  background: value > 0 ? color : 'rgba(255,255,255,0.05)',
+                  borderRadius: barCount > 30 ? '1px' : '3px 3px 0 0',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.7'
+                  e.currentTarget.style.transform = 'scaleY(1.05)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1'
+                  e.currentTarget.style.transform = 'scaleY(1)'
+                }}
+                title={`${labels[idx]}: ${value}`}
+              >
+                {/* Show value on top of bar if significant */}
+                {value > 0 && barCount <= 30 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: -20,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: color,
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {value}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* X-axis labels */}
+        <div style={{
+          display: 'flex',
+          marginTop: 8,
+          padding: '0 8px',
+          gap: barCount > 30 ? '1px' : '4px'
+        }}>
+          {labels.map((label, idx) => {
+            // Show label based on period and position
+            const showLabel = showAllLabels ||
+                            (barCount > 14 && barCount <= 30 && idx % 2 === 0) ||
+                            (barCount > 30 && barCount <= 90 && idx % 5 === 0) ||
+                            (barCount > 90 && idx % 30 === 0) ||
+                            idx === 0 ||
+                            idx === labels.length - 1
+
+            return (
+              <div
+                key={idx}
+                style={{
+                  flex: 1,
+                  fontSize: 9,
+                  color: 'rgba(255,255,255,0.4)',
+                  textAlign: 'center',
+                  visibility: showLabel ? 'visible' : 'hidden'
+                }}
+              >
+                {label}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Y-axis reference line */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          pointerEvents: 'none',
+          padding: '0 8px'
+        }}>
+          {[...Array(5)].map((_, i) => (
+            <div key={i} style={{
+              borderTop: i > 0 ? '1px dashed rgba(255,255,255,0.05)' : 'none',
+              position: 'relative'
+            }}>
+              {i > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  left: -24,
+                  top: -8,
+                  fontSize: 9,
+                  color: 'rgba(255,255,255,0.3)'
+                }}>
+                  {Math.round(max * (5 - i) / 5)}
+                </span>
+              )}
+            </div>
           ))}
-        </svg>
+        </div>
+      </div>
+    )
+  }
+
+  const PeriodFilter = ({ value, onChange }) => {
+    const periods = [
+      { value: 'week', label: 'Last Week', days: 7 },
+      { value: 'month', label: 'Last Month', days: 30 },
+      { value: 'year', label: 'Last Year', days: 365 }
+    ]
+
+    return (
+      <div style={{ display: 'flex', gap: 8 }}>
+        {periods.map(p => (
+          <button
+            key={p.value}
+            onClick={() => onChange(p.value)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              fontSize: 11,
+              fontWeight: 600,
+              background: value === p.value ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.05)',
+              color: value === p.value ? '#60a5fa' : 'rgba(255,255,255,0.5)',
+              border: value === p.value ? '1px solid rgba(96,165,250,0.4)' : '1px solid rgba(255,255,255,0.08)',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => {
+              if (value !== p.value) {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+              }
+            }}
+            onMouseLeave={e => {
+              if (value !== p.value) {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+              }
+            }}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
     )
   }
@@ -207,114 +344,135 @@ export default function AdminDashboard() {
       )}
 
       {/* Growth Charts */}
-      {!loading && growthData && (
-        <div style={{
-          marginTop: 32,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-          gap: 20
-        }}>
-          {/* User Growth Chart */}
+      {!loading && (
+        <div style={{ marginTop: 32 }}>
+          {/* Filter Bar */}
           <div style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 16,
-            padding: 24
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 20
           }}>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <div style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: 'rgba(96,165,250,0.15)',
-                  border: '1px solid rgba(96,165,250,0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Users size={20} color="#60a5fa" />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0 }}>
-                    User Growth
-                  </h3>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-                    Cumulative registrations over last 30 days
-                  </p>
-                </div>
-              </div>
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0, marginBottom: 4 }}>
+                Growth Analytics
+              </h2>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                Track user registrations and requirement posting trends
+              </p>
             </div>
-            <LineChart
-              data={growthData.user_growth}
-              dates={growthData.dates}
-              label="Users"
-              color="#60a5fa"
-              height={200}
-            />
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginTop: 16,
-              fontSize: 11,
-              color: 'rgba(255,255,255,0.4)'
-            }}>
-              <span>{growthData.dates[0]}</span>
-              <span>Total: {growthData.user_growth[growthData.user_growth.length - 1]}</span>
-              <span>{growthData.dates[growthData.dates.length - 1]}</span>
-            </div>
+            <PeriodFilter value={period} onChange={setPeriod} />
           </div>
 
-          {/* Requirements Posted Chart */}
-          <div style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 16,
-            padding: 24
-          }}>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <div style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: 'rgba(139,92,246,0.15)',
-                  border: '1px solid rgba(139,92,246,0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <FileText size={20} color="#8b5cf6" />
+          {loadingGrowth ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+              <Spinner size={24} color="rgba(255,255,255,0.4)" />
+            </div>
+          ) : growthData && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+              gap: 20
+            }}>
+              {/* User Registrations Chart */}
+              <div style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 16,
+                padding: 24
+              }}>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 10,
+                        background: 'rgba(96,165,250,0.15)',
+                        border: '1px solid rgba(96,165,250,0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <Users size={20} color="#60a5fa" />
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0 }}>
+                          User Registrations
+                        </h3>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                          Daily new user sign-ups
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#60a5fa' }}>
+                        {growthData.total_users}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+                        Total in period
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0 }}>
-                    Requirements Posted
-                  </h3>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-                    Daily requirement posting activity
-                  </p>
+                <BarChart
+                  data={growthData.user_registrations}
+                  labels={growthData.date_labels}
+                  color="#60a5fa"
+                  height={240}
+                />
+              </div>
+
+              {/* Requirements Posted Chart */}
+              <div style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 16,
+                padding: 24
+              }}>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 10,
+                        background: 'rgba(139,92,246,0.15)',
+                        border: '1px solid rgba(139,92,246,0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <FileText size={20} color="#8b5cf6" />
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0 }}>
+                          Requirements Posted
+                        </h3>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                          Daily requirement posting activity
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: '#8b5cf6' }}>
+                        {growthData.total_requirements}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+                        Total in period
+                      </div>
+                    </div>
+                  </div>
                 </div>
+                <BarChart
+                  data={growthData.requirements_posted}
+                  labels={growthData.date_labels}
+                  color="#8b5cf6"
+                  height={240}
+                />
               </div>
             </div>
-            <LineChart
-              data={growthData.requirements_posted}
-              dates={growthData.dates}
-              label="Requirements"
-              color="#8b5cf6"
-              height={200}
-            />
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginTop: 16,
-              fontSize: 11,
-              color: 'rgba(255,255,255,0.4)'
-            }}>
-              <span>{growthData.dates[0]}</span>
-              <span>Total: {growthData.requirements_posted.reduce((a, b) => a + b, 0)}</span>
-              <span>{growthData.dates[growthData.dates.length - 1]}</span>
-            </div>
-          </div>
+          )}
         </div>
       )}
 

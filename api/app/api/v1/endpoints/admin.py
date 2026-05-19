@@ -183,69 +183,89 @@ async def get_admin_stats(
 async def get_growth_data(
     db: AsyncSession = Depends(get_db),
     _: str = Depends(get_admin_token),
+    period: str = "month",  # "week", "month", "year"
 ):
     """
     Get time-series data for user growth and requirement posting over time.
-    Returns daily counts for the last 30 days.
+    Period options: week (7 days), month (30 days), year (365 days)
     """
     from sqlalchemy import func, cast, Date
 
-    # Get date 30 days ago
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    # Determine date range based on period
+    if period == "week":
+        days = 7
+    elif period == "year":
+        days = 365
+    else:  # default to month
+        days = 30
 
-    # User growth over time (cumulative)
+    start_date = datetime.utcnow() - timedelta(days=days-1)
+
+    # User registrations (daily counts, not cumulative)
     users_result = await db.execute(
         select(
             cast(User.created_at, Date).label('date'),
             func.count(User.id).label('count')
         )
-        .where(User.created_at >= thirty_days_ago)
+        .where(User.created_at >= start_date)
         .group_by(cast(User.created_at, Date))
         .order_by(cast(User.created_at, Date))
     )
     user_daily_counts = users_result.all()
 
-    # Requirement posting over time (daily counts)
+    # Requirement posting (daily counts)
     reqs_result = await db.execute(
         select(
             cast(Requirement.created_at, Date).label('date'),
             func.count(Requirement.id).label('count')
         )
-        .where(Requirement.created_at >= thirty_days_ago)
+        .where(Requirement.created_at >= start_date)
         .group_by(cast(Requirement.created_at, Date))
         .order_by(cast(Requirement.created_at, Date))
     )
     req_daily_counts = reqs_result.all()
 
-    # Build daily data structure with all 30 days (fill gaps with 0)
+    # Build daily data structure (fill gaps with 0)
     users_by_date = {row.date.isoformat(): row.count for row in user_daily_counts}
     reqs_by_date = {row.date.isoformat(): row.count for row in req_daily_counts}
 
-    # Generate all dates for last 30 days
+    # Generate all dates for the period
     dates = []
+    date_labels = []
     user_counts = []
     req_counts = []
-    cumulative_users = 0
 
-    for i in range(30):
-        date = (datetime.utcnow() - timedelta(days=29-i)).date()
+    for i in range(days):
+        date = (datetime.utcnow() - timedelta(days=days-1-i)).date()
         date_str = date.isoformat()
 
-        # User growth (cumulative)
+        # Daily user registrations
         daily_users = users_by_date.get(date_str, 0)
-        cumulative_users += daily_users
 
-        # Requirement posting (daily)
+        # Daily requirements posted
         daily_reqs = reqs_by_date.get(date_str, 0)
 
         dates.append(date_str)
-        user_counts.append(cumulative_users)
+        # Format label based on period
+        if period == "week":
+            date_labels.append(date.strftime("%a %d"))  # "Mon 15"
+        elif period == "year":
+            date_labels.append(date.strftime("%b"))  # "Jan"
+        else:  # month
+            date_labels.append(date.strftime("%d"))  # "15"
+
+        user_counts.append(daily_users)
         req_counts.append(daily_reqs)
 
     return {
+        "period": period,
+        "days": days,
         "dates": dates,
-        "user_growth": user_counts,
+        "date_labels": date_labels,
+        "user_registrations": user_counts,
         "requirements_posted": req_counts,
+        "total_users": sum(user_counts),
+        "total_requirements": sum(req_counts),
     }
 
 
