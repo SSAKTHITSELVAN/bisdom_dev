@@ -618,7 +618,14 @@ async def get_requirement_matches(
     db: AsyncSession = Depends(get_db),
     _: str = Depends(get_admin_token),
 ):
-    """Get all matching profiles with scores for a requirement"""
+    """
+    Get all potential matches for a requirement.
+    Shows ALL suppliers with calculated scores, not just those above threshold.
+    This allows admin to verify matching algorithm and see why suppliers were/weren't matched.
+    """
+    from app.services.text_matching import calculate_enhanced_match_score
+    from app.models.user_config import UserConfig
+
     try:
         # Get requirement
         req_result = await db.execute(
@@ -633,51 +640,87 @@ async def get_requirement_matches(
         logger.error(f"Error fetching requirement {requirement_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    # Get all leads for this requirement
-    leads_result = await db.execute(
-        select(Lead)
-        .where(Lead.requirement_id == requirement_id)
-        .order_by(desc(Lead.fit_score))
-    )
-    leads = leads_result.scalars().all()
+    # Build requirement dict
+    req_dict = {
+        "product": requirement.product,
+        "quantity": requirement.quantity,
+        "quantity_unit": requirement.quantity_unit,
+        "specifications": requirement.specifications or {},
+        "delivery_location": requirement.delivery_location,
+        "budget_max": requirement.budget_max,
+    }
 
-    # Build matches list with profile info
-    matches = []
-    for lead in leads:
-        # Get supplier profile
-        profile_result = await db.execute(
-            select(AgenticProfile).where(AgenticProfile.user_id == lead.supplier_id)
+    # Get ALL profiles (except the buyer)
+    profiles_result = await db.execute(
+        select(AgenticProfile).where(
+            AgenticProfile.user_id != requirement.buyer_id
         )
-        profile = profile_result.scalar_one_or_none()
+    )
+    all_profiles = profiles_result.scalars().all()
 
+    # Get existing leads to merge with calculated scores
+    existing_leads_result = await db.execute(
+        select(Lead).where(Lead.requirement_id == requirement_id)
+    )
+    existing_leads = {lead.supplier_id: lead for lead in existing_leads_result.scalars().all()}
+
+    # Calculate scores for ALL suppliers
+    matches = []
+    for profile in all_profiles:
         # Get user info
         user_result = await db.execute(
-            select(User).where(User.id == lead.supplier_id)
+            select(User).where(User.id == profile.user_id)
         )
         user = user_result.scalar_one_or_none()
 
-        # Get conversation status
-        conv_result = await db.execute(
-            select(Conversation).where(Conversation.lead_id == lead.id)
+        # Get profile_md
+        config_result = await db.execute(
+            select(UserConfig).where(UserConfig.user_id == profile.user_id)
         )
-        conversation = conv_result.scalar_one_or_none()
+        user_config = config_result.scalar_one_or_none()
+        profile_md = user_config.profile_md if user_config else ""
+
+        # Build location
+        location = None
+        if profile.city and profile.state:
+            location = f"{profile.city}, {profile.state}"
+        elif profile.state:
+            location = profile.state
+        elif profile.city:
+            location = profile.city
+
+        # Calculate fit score (fresh calculation for admin verification)
+        fit_score, match_reasons = calculate_enhanced_match_score(
+            requirement=req_dict,
+            profile_md=profile_md,
+            location=location,
+            categories=profile.product_categories,
+            pricing_available=bool(profile.pricing_bands)
+        )
+
+        # Check if there's an existing lead (for status info)
+        lead = existing_leads.get(profile.user_id)
 
         matches.append({
-            "lead_id": lead.id,
-            "supplier_id": lead.supplier_id,
-            "supplier_name": profile.trade_name if profile else "Unknown",
+            "lead_id": lead.id if lead else None,
+            "supplier_id": profile.user_id,
+            "supplier_name": profile.trade_name or "Unknown",
             "supplier_phone": user.phone if user else None,
-            "fit_score": lead.fit_score,
-            "status": lead.status,
-            "negotiation_round": lead.negotiation_round,
-            "current_offer_price": lead.current_offer_price,
-            "current_lead_time": lead.current_lead_time,
-            "location": f"{profile.city}, {profile.state}" if profile and profile.city else None,
-            "product_categories": profile.product_categories if profile else [],
-            "reliability_score": profile.reliability_score if profile else 0,
-            "conversation_mode": conversation.mode if conversation else None,
-            "created_at": lead.created_at.isoformat() if lead.created_at else None,
+            "fit_score": fit_score,
+            "match_reasons": match_reasons,
+            "status": lead.status if lead else "not_matched",
+            "negotiation_round": lead.negotiation_round if lead else 0,
+            "current_offer_price": lead.current_offer_price if lead else None,
+            "current_lead_time": lead.current_lead_time if lead else None,
+            "location": location,
+            "product_categories": profile.product_categories if profile.product_categories else [],
+            "reliability_score": profile.reliability_score,
+            "created_at": lead.created_at.isoformat() if lead and lead.created_at else None,
+            "has_lead": lead is not None,
         })
+
+    # Sort by fit_score descending
+    matches.sort(key=lambda x: x["fit_score"], reverse=True)
 
     return {
         "requirement": {
@@ -690,6 +733,7 @@ async def get_requirement_matches(
         },
         "matches": matches,
         "total_matches": len(matches),
+        "matches_above_threshold": len([m for m in matches if m["fit_score"] >= 20]),
     }
 
 

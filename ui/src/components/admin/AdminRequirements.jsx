@@ -72,8 +72,8 @@ export default function AdminRequirements() {
     )
   }
 
-  const MatchScore = ({ score }) => {
-    const color = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444'
+  const MatchScore = ({ score, aboveThreshold }) => {
+    const color = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : score >= 20 ? '#60a5fa' : '#ef4444'
     return (
       <div style={{
         display: 'flex',
@@ -95,8 +95,23 @@ export default function AdminRequirements() {
           }} />
         </div>
         <span style={{ fontSize: 12, fontWeight: 700, color }}>
-          {score}
+          {score.toFixed(1)}%
         </span>
+        {aboveThreshold && (
+          <span style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: '#10b981',
+            background: 'rgba(16,185,129,0.15)',
+            border: '1px solid rgba(16,185,129,0.3)',
+            padding: '2px 6px',
+            borderRadius: 4,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em'
+          }}>
+            ✓ Match
+          </span>
+        )}
       </div>
     )
   }
@@ -257,7 +272,7 @@ export default function AdminRequirements() {
                                   {match.location || '—'}
                                 </td>
                                 <td style={{ padding: '16px' }}>
-                                  <MatchScore score={match.match_score || 0} />
+                                  <MatchScore score={match.fit_score || 0} aboveThreshold={match.fit_score >= 20} />
                                 </td>
                                 <td style={{ padding: '16px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
