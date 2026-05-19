@@ -172,6 +172,7 @@ async def get_requirement(
 async def _run_matching(requirement_id: int):
     """Background: match requirement → create leads → initiate seller agent conversations."""
     from app.db.base import AsyncSessionLocal
+    import asyncio
 
     async with AsyncSessionLocal() as db:
         try:
@@ -180,15 +181,29 @@ async def _run_matching(requirement_id: int):
             )
             requirement = req_result.scalar_one_or_none()
             if not requirement:
+                logger.warning(f"[MATCH] Requirement #{requirement_id} not found")
                 return
 
+            logger.info(f"[MATCH] Starting matching for requirement #{requirement_id}")
             leads = await match_requirement_to_suppliers(requirement, db)
             await db.commit()
 
-            logger.info(f"[MATCH] Requirement #{requirement_id}: {len(leads)} leads — initiating seller agents")
+            logger.info(f"[MATCH] Requirement #{requirement_id}: {len(leads)} leads created — initiating seller agents")
 
+            if len(leads) == 0:
+                logger.warning(f"[MATCH] Requirement #{requirement_id}: no matching suppliers found")
+                return
+
+            # Initiate conversations for all leads sequentially
             for lead in leads:
-                await _initiate_seller_conversation(lead.id)
+                try:
+                    logger.info(f"[MATCH] Initiating conversation for lead #{lead.id}")
+                    await _initiate_seller_conversation(lead.id)
+                    # Small delay between starting conversations
+                    await asyncio.sleep(1)
+                except Exception as conv_err:
+                    logger.error(f"[MATCH] Failed to initiate conversation for lead #{lead.id}: {conv_err}")
+                    import traceback; traceback.print_exc()
 
         except Exception as e:
             logger.error(f"[MATCH] Error for requirement #{requirement_id}: {e}")
@@ -207,12 +222,17 @@ async def _initiate_seller_conversation(lead_id: int):
     from app.agents.buyer_agent import buyer_agent_respond
     from app.agents.config_agent import build_agent_system_prompt
 
+    logger.info(f"[CONV] Starting conversation initiation for lead #{lead_id}")
+
     async with AsyncSessionLocal() as db:
         try:
             lead_result = await db.execute(select(Lead).where(Lead.id == lead_id))
             lead = lead_result.scalar_one_or_none()
             if not lead:
+                logger.warning(f"[CONV] Lead #{lead_id}: not found in database")
                 return
+
+            logger.info(f"[CONV] Lead #{lead_id}: Found lead (buyer={lead.buyer_id}, supplier={lead.supplier_id}, status={lead.status})")
 
             req_result = await db.execute(
                 select(Requirement).where(Requirement.id == lead.requirement_id)
@@ -267,7 +287,7 @@ async def _initiate_seller_conversation(lead_id: int):
             agent_config = supplier_profile.agent_config or get_default_agent_config()
 
             # STEP 1: SELLER AI initiates — reads full profile + settings
-            logger.info(f"[CONV] Lead #{lead_id}: seller AI initiating")
+            logger.info(f"[CONV] Lead #{lead_id}: Calling supplier AI to generate opening message...")
             seller_opener = await generate_supplier_opener(
                 requirement=req_dict,
                 supplier_profile=supplier_profile_dict,
@@ -276,6 +296,7 @@ async def _initiate_seller_conversation(lead_id: int):
                 seller_settings_md=seller_settings_md,
             )
             seller_msg_text = seller_opener.get("message", "")
+            logger.info(f"[CONV] Lead #{lead_id}: Supplier AI generated message ({len(seller_msg_text)} chars)")
 
             # Create conversation
             conversation = Conversation(
@@ -306,7 +327,7 @@ async def _initiate_seller_conversation(lead_id: int):
             await db.flush()
 
             # STEP 2: BUYER AI responds immediately
-            logger.info(f"[CONV] Lead #{lead_id}: buyer AI responding to seller opener")
+            logger.info(f"[CONV] Lead #{lead_id}: Calling buyer AI to respond to seller's opening...")
             buyer_response = await buyer_agent_respond(
                 conversation_history=[{"role": "ai_supplier", "content": seller_msg_text}],
                 supplier_message=seller_msg_text,
@@ -317,6 +338,7 @@ async def _initiate_seller_conversation(lead_id: int):
                 buyer_settings_md=buyer_settings_md,
             )
             buyer_msg_text = buyer_response.get("message", "")
+            logger.info(f"[CONV] Lead #{lead_id}: Buyer AI generated response ({len(buyer_msg_text)} chars)")
 
             db.add(Message(
                 conversation_id=conversation.id,
@@ -339,10 +361,17 @@ async def _initiate_seller_conversation(lead_id: int):
             await db.commit()
             logger.info(f"[CONV] Lead #{lead_id}: seller opened, buyer responded ✓ — starting autonomous loop")
 
-            # Kick off autonomous negotiation loop
+            # Kick off autonomous negotiation loop in background
+            # Use asyncio.ensure_future with current event loop to prevent premature cleanup
             import asyncio
             from app.api.v1.endpoints.conversations import _run_autonomous_negotiation_round
-            asyncio.create_task(_run_autonomous_negotiation_round(lead_id))
+
+            try:
+                loop = asyncio.get_event_loop()
+                loop.create_task(_run_autonomous_negotiation_round(lead_id))
+                logger.info(f"[CONV] Lead #{lead_id}: autonomous negotiation task created")
+            except Exception as e:
+                logger.error(f"[CONV] Lead #{lead_id}: failed to start autonomous loop — {e}")
 
         except Exception as e:
             logger.error(f"[CONV] Lead #{lead_id}: error — {e}")
