@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sendOTP, verifyOTP } from '../../api/auth'
+import { verifyGST } from '../../api/onboarding'
 import { useAuthStore } from '@/store/authStore'
 import Logo from '../ui/Logo'
 import Spinner from '../ui/Spinner'
 import toast from 'react-hot-toast'
-import { Bot, User, ArrowRight, RefreshCw } from 'lucide-react'
+import { Bot, User, ArrowRight, RefreshCw, Building2, CheckCircle } from 'lucide-react'
 
 export default function ConversationalLogin() {
   const [messages, setMessages] = useState([])
@@ -19,6 +20,7 @@ export default function ConversationalLogin() {
   const [showChoiceButtons, setShowChoiceButtons] = useState(true)
   const [canResendOTP, setCanResendOTP] = useState(false)
   const [resendTimer, setResendTimer] = useState(30)
+  const [gstData, setGstData] = useState(null)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const navigate = useNavigate()
@@ -144,6 +146,7 @@ export default function ConversationalLogin() {
         await sendOTP(phoneDigits)
         addBotMessage(`✅ Perfect! I've sent a 6-digit OTP to +91 ${phoneDigits.slice(0,5)}*****`)
         setTimeout(() => addBotMessage("📱 Please check your SMS and enter the OTP below:"), 1000)
+        setTimeout(() => addBotMessage("💡 Didn't receive it? You can resend after 30 seconds."), 2000)
         setCurrentStep('otp')
         // Start resend OTP timer
         setCanResendOTP(false)
@@ -171,11 +174,16 @@ export default function ConversationalLogin() {
         const token = response.data.access_token
         const isOnboarded = response.data.is_onboarded
 
-        // CRITICAL: Update auth store so ProtectedRoute sees the token
-        setAuth(token, null, isOnboarded)
+        // CRITICAL: Update both localStorage AND auth store
         localStorage.setItem('token', token)
 
+        // Update zustand store (this updates both memory and persisted storage)
+        setAuth(token, null, isOnboarded)
+
         addBotMessage("🎉 Verified!")
+
+        // Wait for zustand to finish persisting before navigating
+        await new Promise(resolve => setTimeout(resolve, 200))
 
         // For Sign Up (new user) - ask for GSTIN
         if (authType === 'signup' && !isOnboarded) {
@@ -190,7 +198,8 @@ export default function ConversationalLogin() {
           setTimeout(() => addBotMessage("Welcome back to Bisdom!"), 1000)
           setTimeout(() => {
             setLoading(false)
-            navigate('/workspace', { replace: true })
+            // Force a small delay to ensure hydration completes
+            setTimeout(() => navigate('/workspace', { replace: true }), 100)
           }, 2500)
         }
         // Edge case: signin but not onboarded (send to onboarding)
@@ -198,7 +207,7 @@ export default function ConversationalLogin() {
           setTimeout(() => addBotMessage("Let's complete your profile setup..."), 1000)
           setTimeout(() => {
             setLoading(false)
-            navigate('/onboarding', { replace: true })
+            setTimeout(() => navigate('/onboarding', { replace: true }), 100)
           }, 2500)
         }
         // Edge case: signup but already onboarded (send to workspace)
@@ -206,7 +215,7 @@ export default function ConversationalLogin() {
           setTimeout(() => addBotMessage("Welcome back to Bisdom!"), 1000)
           setTimeout(() => {
             setLoading(false)
-            navigate('/workspace', { replace: true })
+            setTimeout(() => navigate('/workspace', { replace: true }), 100)
           }, 2500)
         }
       } catch (err) {
@@ -225,14 +234,33 @@ export default function ConversationalLogin() {
         return
       }
 
-      // Store GSTIN and proceed to onboarding
-      setLoading(false)
-      setTimeout(() => addBotMessage("✅ Perfect! GSTIN verified."), 800)
-      setTimeout(() => addBotMessage("Let me set up your workspace..."), 1600)
+      try {
+        // Verify GSTIN with backend
+        const response = await verifyGST(gstinValue)
 
-      setTimeout(() => {
-        navigate('/onboarding', { state: { gstin: gstinValue }, replace: true })
-      }, 3000)
+        if (response.data.valid) {
+          setGstData(response.data)
+          setLoading(false)
+          addBotMessage("✅ Perfect! GSTIN verified.")
+          setTimeout(() => addBotMessage(`🏢 Company: ${response.data.trade_name || response.data.legal_name}`), 800)
+          setTimeout(() => addBotMessage(`📍 Location: ${response.data.city}, ${response.data.state}`), 1400)
+          setTimeout(() => addBotMessage(`✓ Status: ${response.data.gst_status}`), 2000)
+          setTimeout(() => addBotMessage("Let me set up your workspace..."), 2800)
+
+          setTimeout(() => {
+            navigate('/onboarding', { state: { gstin: gstinValue, gstData: response.data }, replace: true })
+          }, 4000)
+        } else {
+          setLoading(false)
+          addBotMessage(`❌ ${response.data.error || 'GSTIN verification failed'}`)
+          addBotMessage("Please check your GSTIN and try again.")
+        }
+      } catch (err) {
+        setLoading(false)
+        const errorMsg = err.response?.data?.detail || "Couldn't verify GSTIN"
+        addBotMessage(`❌ ${errorMsg}`)
+        addBotMessage("Please check your GSTIN and try again.")
+      }
     }
   }
 

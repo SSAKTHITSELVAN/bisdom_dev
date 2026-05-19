@@ -1,28 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { useEffect, useState } from 'react'
 
 export default function ProtectedRoute({ children, requireOnboarding = true }) {
-  const { token, isOnboarded } = useAuthStore()
-  const [isHydrated, setIsHydrated] = useState(false)
+  const { token, isOnboarded, _hasHydrated } = useAuthStore()
 
-  useEffect(() => {
-    // Wait for zustand to hydrate from localStorage
-    const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
-      setIsHydrated(true)
-    })
-
-    // Fallback: mark as hydrated after 100ms even if event doesn't fire
-    const timeout = setTimeout(() => setIsHydrated(true), 100)
-
-    return () => {
-      unsubscribe()
-      clearTimeout(timeout)
-    }
-  }, [])
-
-  // Don't redirect until zustand has hydrated
-  if (!isHydrated) {
+  // Wait for zustand to hydrate from localStorage
+  if (!_hasHydrated) {
     return (
       <div style={{
         display: 'flex',
@@ -36,6 +19,7 @@ export default function ProtectedRoute({ children, requireOnboarding = true }) {
     )
   }
 
+  // Check authentication after hydration
   if (!token) return <Navigate to="/login" replace />
   if (requireOnboarding && !isOnboarded) return <Navigate to="/onboarding" replace />
   return children

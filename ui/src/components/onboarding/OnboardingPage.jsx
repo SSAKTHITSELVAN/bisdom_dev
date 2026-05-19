@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { verifyGST, completeOnboard } from '../../api/onboarding'
 import { useAuthStore } from '../../store/authStore'
 import Logo from '../ui/Logo'
@@ -8,12 +8,20 @@ import toast from 'react-hot-toast'
 import { CheckCircle, Building2, ChevronRight } from 'lucide-react'
 
 export default function OnboardingPage() {
-  const [gstin, setGstin] = useState('')
-  const [gstData, setGstData] = useState(null)
+  const location = useLocation()
+  const [gstin, setGstin] = useState(location.state?.gstin || '')
+  const [gstData, setGstData] = useState(location.state?.gstData || null)
   const [loading, setLoading] = useState(false)
   const [completing, setCompleting] = useState(false)
   const navigate = useNavigate()
   const setOnboarded = useAuthStore(s => s.setOnboarded)
+
+  // Auto-scroll GSTIN if passed from login
+  useEffect(() => {
+    if (location.state?.gstData && !gstData) {
+      setGstData(location.state.gstData)
+    }
+  }, [location.state])
 
   const handleVerifyGST = async () => {
     if (gstin.length < 15) { toast.error('Enter valid 15-character GSTIN'); return }
