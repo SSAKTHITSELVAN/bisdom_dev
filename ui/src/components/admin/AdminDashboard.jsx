@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { getAdminStats } from '@/api/admin'
+import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { Users, FileText, TrendingUp, CheckCircle, Activity, Sparkles, Building2, ShoppingCart } from 'lucide-react'
 import Spinner from '@/components/ui/Spinner'
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const { handleAuthError } = useAdminAuth()
 
   useEffect(() => {
     loadStats()
@@ -17,6 +19,7 @@ export default function AdminDashboard() {
       setStats(response.data)
     } catch (error) {
       console.error('Failed to load stats:', error)
+      handleAuthError(error)
     } finally {
       setLoading(false)
     }

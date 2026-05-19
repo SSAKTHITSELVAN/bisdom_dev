@@ -23,8 +23,7 @@ export const clearAdminToken = () => {
 const adminRequest = async (config) => {
   const token = getAdminToken()
   if (!token) {
-    // Redirect to login if no token
-    window.location.href = '/admin/login'
+    // Don't auto-redirect here - let the component handle it
     throw new Error('Admin not authenticated')
   }
 
@@ -37,10 +36,10 @@ const adminRequest = async (config) => {
       },
     })
   } catch (error) {
-    // If 403, token is expired or invalid - clear and redirect to login
+    // If 403, token is expired or invalid - clear it
     if (error.response?.status === 403) {
       clearAdminToken()
-      window.location.href = '/admin/login'
+      // Don't auto-redirect - let the component handle it
     }
     throw error
   }
