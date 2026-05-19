@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminLogin, setAdminToken, getAdminToken } from '@/api/admin'
-import { Lock, Clock } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function AdminLogin() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [currentTime, setCurrentTime] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -15,21 +14,6 @@ export default function AdminLogin() {
     if (getAdminToken()) {
       navigate('/admin/dashboard')
     }
-
-    // Update time display (SERVER TIME - UTC)
-    const updateTime = () => {
-      const now = new Date()
-      // Show UTC time (server time) instead of local time
-      setCurrentTime(now.toLocaleTimeString('en-US', {
-        timeZone: 'UTC',
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit'
-      }))
-    }
-    updateTime()
-    const interval = setInterval(updateTime, 1000)
-    return () => clearInterval(interval)
   }, [navigate])
 
   const handleLogin = async (e) => {
@@ -47,7 +31,7 @@ export default function AdminLogin() {
       navigate('/admin/dashboard')
     } catch (error) {
       if (error.response?.status === 403) {
-        toast.error('Invalid password - use current time in HHMM format')
+        toast.error('Invalid admin password')
       } else {
         toast.error('Login failed')
       }
@@ -92,29 +76,8 @@ export default function AdminLogin() {
             Bisdom Admin
           </h1>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-            Time-based authentication
+            Secure authentication
           </p>
-        </div>
-
-        <div style={{
-          background: 'rgba(59,130,246,0.1)',
-          border: '1px solid rgba(59,130,246,0.2)',
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 24,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12
-        }}>
-          <Clock size={20} color="#60a5fa" />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>
-              Server Time (UTC)
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#60a5fa', fontFamily: 'monospace' }}>
-              {currentTime}
-            </div>
-          </div>
         </div>
 
         <form onSubmit={handleLogin}>
@@ -126,14 +89,13 @@ export default function AdminLogin() {
               color: 'rgba(255,255,255,0.7)',
               marginBottom: 8
             }}>
-              Password (HHMM format)
+              Admin Password
             </label>
             <input
-              type="text"
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="e.g., 1430 for 14:30"
-              maxLength={4}
+              placeholder="Enter admin password"
               style={{
                 width: '100%',
                 padding: '14px 16px',
@@ -142,11 +104,7 @@ export default function AdminLogin() {
                 borderRadius: 10,
                 color: '#fff',
                 fontSize: 16,
-                fontFamily: 'monospace',
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                outline: 'none',
-                textAlign: 'center'
+                outline: 'none'
               }}
               autoFocus
             />

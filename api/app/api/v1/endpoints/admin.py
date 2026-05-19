@@ -20,54 +20,87 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
+ADMIN_PASSWORD = "elon.1"  # Static admin password
+SESSION_EXPIRY_HOURS = 24  # 1 day session
+
+# Store admin sessions: {token: expiry_time}
+admin_sessions = {}
+
+
 def verify_admin_password(password: str) -> bool:
-    """
-    Verify time-based admin password. Format: HHMM (e.g., 1430 for 14:30)
-    Accepts password from current time and up to 30 minutes in the past for session persistence.
-    """
-    now = datetime.now()
-
-    # Check current time and previous 30 minutes
-    for minutes_ago in range(31):  # 0 to 30 minutes
-        check_time = now - timedelta(minutes=minutes_ago)
-        time_password = check_time.strftime("%H%M")
-        if password == time_password:
-            return True
-
-    return False
+    """Verify static admin password"""
+    return password == ADMIN_PASSWORD
 
 
-def get_admin_password(authorization: str = Header(None)) -> str:
-    """Extract and verify admin password from Authorization header"""
+def create_admin_token(password: str) -> str:
+    """Create admin session token with 24-hour expiry"""
+    import hashlib
+    import time
+
+    # Create token from password + timestamp
+    token_string = f"{password}_{time.time()}"
+    token = hashlib.sha256(token_string.encode()).hexdigest()[:32]
+
+    # Store with expiry time
+    expiry = datetime.now() + timedelta(hours=SESSION_EXPIRY_HOURS)
+    admin_sessions[token] = expiry
+
+    return token
+
+
+def verify_admin_token(token: str) -> bool:
+    """Verify admin token and check if not expired"""
+    if token not in admin_sessions:
+        return False
+
+    expiry = admin_sessions[token]
+    if datetime.now() > expiry:
+        # Token expired, remove it
+        del admin_sessions[token]
+        return False
+
+    return True
+
+
+def get_admin_token(authorization: str = Header(None)) -> str:
+    """Extract and verify admin token from Authorization header"""
     if not authorization:
         raise HTTPException(status_code=401, detail="Admin authorization required")
 
-    # Expect format: "Bearer 1430" or just "1430"
-    password = authorization.replace("Bearer ", "").strip()
+    # Expect format: "Bearer <token>"
+    token = authorization.replace("Bearer ", "").strip()
 
-    if not verify_admin_password(password):
-        raise HTTPException(status_code=403, detail="Invalid admin password")
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=403, detail="Invalid or expired admin token")
 
-    return password
+    return token
 
 
 @router.post("/login")
 async def admin_login(password: str):
-    """Verify admin password (time-based)"""
+    """
+    Admin login with static password.
+    Password: elon.1
+    Session valid for 24 hours.
+    """
     if not verify_admin_password(password):
         raise HTTPException(status_code=403, detail="Invalid admin password")
+
+    # Create session token
+    token = create_admin_token(password)
 
     return {
         "success": True,
         "message": "Admin access granted",
-        "token": password,  # Return password as token for subsequent requests
+        "token": token,
+        "expiresIn": SESSION_EXPIRY_HOURS * 3600,  # seconds
     }
 
 
 @router.get("/stats")
 async def get_admin_stats(
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
 ):
     """Get dashboard statistics"""
 
@@ -136,7 +169,7 @@ async def get_admin_stats(
 @router.get("/overview")
 async def admin_overview(
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
 ):
     """Full system overview — users, posts, matches, deals."""
 
@@ -265,7 +298,7 @@ async def admin_overview(
 @router.post("/fix-profiles")
 async def fix_profiles(
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
 ):
     """
     Dev utility — marks all onboarded profiles as both buyer+supplier
@@ -298,7 +331,7 @@ async def fix_profiles(
 async def get_lead_conversation(
     lead_id: int,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
 ):
     """See full conversation for any lead."""
     conv_result = await db.execute(
@@ -334,7 +367,7 @@ async def get_lead_conversation(
 async def rematch_requirement(
     requirement_id: int,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
 ):
     """
     Manually re-run matching + initiate agent conversations for a requirement.
@@ -376,7 +409,7 @@ async def rematch_requirement(
 @router.get("/profiles")
 async def list_profiles(
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
 ):
     """See all profiles with their matching eligibility."""
     result = await db.execute(select(AgenticProfile))
@@ -402,7 +435,7 @@ async def list_profiles(
 @router.get("/requirements")
 async def list_all_requirements(
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
     skip: int = 0,
     limit: int = 50,
     status: Optional[str] = None,
@@ -451,7 +484,7 @@ async def list_all_requirements(
 async def get_requirement_matches(
     requirement_id: int,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
 ):
     """Get all matching profiles with scores for a requirement"""
 
@@ -526,7 +559,7 @@ async def get_requirement_matches(
 @router.get("/users")
 async def list_all_users(
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
     skip: int = 0,
     limit: int = 100,
     role: Optional[str] = None,  # "buyer" or "supplier"
@@ -593,7 +626,7 @@ async def list_all_users(
 @router.get("/map-data")
 async def get_map_data(
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(get_admin_password),
+    _: str = Depends(get_admin_token),
 ):
     """Get supplier locations for map visualization"""
 
