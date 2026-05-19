@@ -80,12 +80,40 @@ async def get_conversation_by_lead(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get conversation by lead ID."""
+    """
+    Get conversation by lead ID.
+    If conversation doesn't exist and lead is ready, trigger initiation in background.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
     result = await db.execute(
         select(Conversation).where(Conversation.lead_id == lead_id)
     )
     conversation = result.scalar_one_or_none()
+
     if not conversation:
+        # Check lead status
+        lead_result = await db.execute(select(Lead).where(Lead.id == lead_id))
+        lead = lead_result.scalar_one_or_none()
+
+        if lead and lead.status in ('new', 'agent_initiated'):
+            # Conversation should exist but doesn't - try to initiate
+            logger.warning(f"[CONV] Lead #{lead_id}: No conversation found but status is {lead.status}. Triggering initiation.")
+
+            # Try to trigger conversation initiation in background
+            try:
+                from app.api.v1.endpoints.requirements import _initiate_seller_conversation
+                import asyncio
+
+                # Trigger in background
+                loop = asyncio.get_event_loop()
+                loop.create_task(_initiate_seller_conversation(lead_id))
+
+                logger.info(f"[CONV] Lead #{lead_id}: Conversation initiation triggered")
+            except Exception as e:
+                logger.error(f"[CONV] Lead #{lead_id}: Failed to trigger initiation — {e}")
+
         raise HTTPException(status_code=404, detail="Conversation not started yet")
 
     return await get_conversation(conversation.id, db, current_user)
@@ -185,7 +213,13 @@ async def toggle_human_chat(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Enable or disable human chat for buyer or supplier on a specific lead."""
+    """
+    Enable or disable human chat for buyer or supplier on a specific lead.
+    When human enables chat, AI on the other side should respond if needed.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
     lead_result = await db.execute(select(Lead).where(Lead.id == request.lead_id))
     lead = lead_result.scalar_one_or_none()
     if not lead:
@@ -197,6 +231,10 @@ async def toggle_human_chat(
     if not is_buyer and not is_supplier:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # Track if this is enabling (not disabling) chat
+    was_enabled = (lead.buyer_chat_enabled if is_buyer else lead.supplier_chat_enabled)
+    is_enabling = request.enabled and not was_enabled
+
     if is_buyer:
         lead.buyer_chat_enabled = request.enabled
     else:
@@ -205,13 +243,32 @@ async def toggle_human_chat(
     # Update conversation mode
     conv_result = await db.execute(select(Conversation).where(Conversation.lead_id == lead.id))
     conversation = conv_result.scalar_one_or_none()
+
     if conversation:
         if lead.buyer_chat_enabled or lead.supplier_chat_enabled:
             conversation.mode = "hybrid"
         else:
             conversation.mode = "ai_negotiating"
 
-    await db.flush()
+        # If human just enabled chat and there are messages, check if AI needs to respond
+        if is_enabling and conversation.ai_context and len(conversation.ai_context) > 0:
+            last_msg = conversation.ai_context[-1]
+            last_role = last_msg.get("role", "")
+
+            # If last message was from the human who just enabled chat, trigger AI response
+            if (is_buyer and last_role in ("human_buyer", "ai_buyer")) or \
+               (is_supplier and last_role in ("human_supplier", "ai_supplier")):
+                logger.info(f"[TOGGLE] Lead #{lead.id}: Human enabled chat, triggering AI response on other side")
+
+                # Trigger AI response on the other side
+                if is_buyer and not lead.supplier_chat_enabled:
+                    # Buyer enabled chat, trigger supplier AI to respond
+                    await _trigger_supplier_ai_response(conversation, lead, last_msg.get("content", ""), db)
+                elif is_supplier and not lead.buyer_chat_enabled:
+                    # Supplier enabled chat, trigger buyer AI to respond
+                    await _trigger_buyer_ai_response(conversation, lead, last_msg.get("content", ""), db)
+
+    await db.commit()
 
     return {
         "success": True,

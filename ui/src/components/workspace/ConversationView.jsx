@@ -200,10 +200,37 @@ export default function ConversationView({ leadId }) {
   useEffect(() => { setLoading(true); setConv(null); setLead(null); fetch() }, [leadId])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }) }, [conv?.messages])
 
+  // Auto-refresh while conversation is being initiated
+  useEffect(() => {
+    if (!lead || !conv) return
+
+    // If lead is new or has no messages, keep polling
+    const shouldPoll = (lead.status === 'new' || lead.status === 'agent_initiated') &&
+                       (!conv.messages || conv.messages.length === 0)
+
+    if (shouldPoll) {
+      const timer = setInterval(() => {
+        fetch()
+      }, 3000) // Poll every 3 seconds
+
+      return () => clearInterval(timer)
+    }
+  }, [lead?.status, conv?.messages?.length])
+
   const handleToggle = async () => {
+    const newChatOn = !chatOn
     try {
-      await toggleChat({ lead_id:parseInt(leadId), enabled:!chatOn })
-      setChatOn(!chatOn); fetch()
+      await toggleChat({ lead_id:parseInt(leadId), enabled:newChatOn })
+      setChatOn(newChatOn)
+
+      if (newChatOn) {
+        toast.success('Live chat enabled — you can now send messages')
+      } else {
+        toast.success('AI mode enabled — AI will negotiate for you')
+      }
+
+      // Refresh to get updated conversation state
+      setTimeout(() => fetch(), 1000)
     } catch { toast.error('Failed') }
   }
 
@@ -334,8 +361,21 @@ export default function ConversationView({ leadId }) {
             {!loading && !conv && (
               <div style={{ textAlign:'center', padding:'64px 20px', color:'rgba(255,255,255,0.3)' }}>
                 <Bot size={40} style={{ margin:'0 auto 16px', opacity:0.2 }}/>
-                <p style={{ fontSize:14, fontWeight:500 }}>No conversation yet</p>
-                <p style={{ fontSize:12, color:'rgba(255,255,255,0.2)', marginTop:6 }}>AI agents will begin negotiating shortly</p>
+                <p style={{ fontSize:14, fontWeight:500 }}>
+                  {lead?.status === 'new' ? 'Initiating conversation...' : 'No conversation yet'}
+                </p>
+                <p style={{ fontSize:12, color:'rgba(255,255,255,0.2)', marginTop:6, maxWidth:300, margin:'6px auto 0' }}>
+                  {lead?.status === 'new'
+                    ? 'AI agents are starting the negotiation. This usually takes 5-10 seconds.'
+                    : lead?.status === 'agent_initiated'
+                    ? 'AI agents are generating their opening messages...'
+                    : lead?.ai_paused_for_buyer
+                    ? 'Waiting for your decision. Use the Actions panel to continue.'
+                    : lead?.ai_paused_for_supplier
+                    ? 'Waiting for supplier to respond. AI has paused for human input.'
+                    : 'AI agents will begin negotiating shortly'
+                  }
+                </p>
                 <button onClick={fetch} style={{ marginTop:16, fontSize:12, color:'#3b82f6', background:'rgba(59,130,246,0.1)', border:'1px solid rgba(59,130,246,0.2)', borderRadius:8, padding:'8px 16px', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6 }}>
                   <RefreshCw size={12}/> Refresh
                 </button>
@@ -344,6 +384,23 @@ export default function ConversationView({ leadId }) {
             {conv?.messages?.map((m,i) => (
               <Bubble key={m.id||i} msg={m}/>
             ))}
+
+            {/* Show waiting message if AI is paused */}
+            {conv && conv.messages && conv.messages.length > 0 && (
+              lead?.ai_paused_for_buyer ? (
+                <div style={{ textAlign:'center', margin:'24px 0', padding:'16px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:12 }}>
+                  <AlertTriangle size={24} color="#f59e0b" style={{ margin:'0 auto 8px' }}/>
+                  <p style={{ fontSize:13, fontWeight:600, color:'#f59e0b', marginBottom:4 }}>AI Paused — Waiting for Your Decision</p>
+                  <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>The buyer AI needs your input to continue. Use the Actions panel to decide.</p>
+                </div>
+              ) : lead?.ai_paused_for_supplier ? (
+                <div style={{ textAlign:'center', margin:'24px 0', padding:'16px', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:12 }}>
+                  <Bot size={24} color="#8b5cf6" style={{ margin:'0 auto 8px' }}/>
+                  <p style={{ fontSize:13, fontWeight:600, color:'#8b5cf6', marginBottom:4 }}>Waiting for Supplier Response</p>
+                  <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>The supplier AI has paused for human input. The conversation will continue once they respond.</p>
+                </div>
+              ) : null
+            )}
             <div ref={bottomRef}/>
           </div>
         </div>
