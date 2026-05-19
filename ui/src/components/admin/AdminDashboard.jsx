@@ -87,23 +87,26 @@ export default function AdminDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
           <StatCard
             icon={Users}
-            label="Total Users"
+            label="Total Registered Users"
             value={stats?.total_users}
+            sublabel={`${stats?.users_with_profiles || 0} with complete profiles`}
             color="#60a5fa"
           />
 
           <StatCard
-            icon={Building2}
-            label="Total Suppliers"
-            value={stats?.total_suppliers}
-            color="#10b981"
+            icon={ShoppingCart}
+            label="Posted Requirements"
+            value={stats?.users_posted_requirements}
+            sublabel="Users who acted as buyers"
+            color="#f59e0b"
           />
 
           <StatCard
-            icon={ShoppingCart}
-            label="Total Buyers"
-            value={stats?.total_buyers}
-            color="#f59e0b"
+            icon={Building2}
+            label="Received Leads"
+            value={stats?.users_received_leads}
+            sublabel="Users who acted as suppliers"
+            color="#10b981"
           />
 
           <StatCard
@@ -161,11 +164,11 @@ export default function AdminDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             <div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
-                Active Rate
+                Profile Completion Rate
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>
-                {stats.total_requirements > 0
-                  ? `${Math.round((stats.active_requirements / stats.total_requirements) * 100)}%`
+                {stats.total_users > 0
+                  ? `${Math.round((stats.users_with_profiles / stats.total_users) * 100)}%`
                   : '0%'}
               </div>
             </div>
@@ -183,7 +186,7 @@ export default function AdminDashboard() {
 
             <div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
-                Conversion Rate
+                Lead → Deal Conversion
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>
                 {stats.total_leads > 0
@@ -194,12 +197,12 @@ export default function AdminDashboard() {
 
             <div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
-                Supplier/Buyer Ratio
+                Active Requirement Rate
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, color: '#8b5cf6' }}>
-                {stats.total_buyers > 0
-                  ? (stats.total_suppliers / stats.total_buyers).toFixed(1)
-                  : '0'}
+                {stats.total_requirements > 0
+                  ? `${Math.round((stats.active_requirements / stats.total_requirements) * 100)}%`
+                  : '0%'}
               </div>
             </div>
           </div>

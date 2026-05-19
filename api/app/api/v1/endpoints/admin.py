@@ -102,11 +102,35 @@ async def get_admin_stats(
     db: AsyncSession = Depends(get_db),
     _: str = Depends(get_admin_token),
 ):
-    """Get dashboard statistics"""
+    """
+    Get dashboard statistics.
+    Note: In peer-to-peer model, users can be both buyers AND suppliers,
+    so counts will overlap.
+    """
 
-    # Total users
+    # Total users (registered accounts)
     users_result = await db.execute(select(func.count(User.id)))
     total_users = users_result.scalar() or 0
+
+    # Users with complete profiles
+    profiles_result = await db.execute(
+        select(func.count(AgenticProfile.id)).where(
+            AgenticProfile.profile_build_status == "complete"
+        )
+    )
+    total_profiles = profiles_result.scalar() or 0
+
+    # Users who have posted requirements (acted as buyers)
+    users_with_reqs = await db.execute(
+        select(func.count(func.distinct(Requirement.buyer_id)))
+    )
+    users_posted_requirements = users_with_reqs.scalar() or 0
+
+    # Users who have received leads (acted as suppliers)
+    users_with_leads = await db.execute(
+        select(func.count(func.distinct(Lead.supplier_id)))
+    )
+    users_received_leads = users_with_leads.scalar() or 0
 
     # Total requirements
     req_result = await db.execute(select(func.count(Requirement.id)))
@@ -118,7 +142,7 @@ async def get_admin_stats(
     )
     active_requirements = active_req_result.scalar() or 0
 
-    # Total leads
+    # Total leads (potential matches)
     leads_result = await db.execute(select(func.count(Lead.id)))
     total_leads = leads_result.scalar() or 0
 
@@ -134,18 +158,6 @@ async def get_admin_stats(
     )
     total_deals = completed_deals.scalar() or 0
 
-    # Total suppliers
-    suppliers_result = await db.execute(
-        select(func.count(AgenticProfile.id)).where(AgenticProfile.is_supplier == True)
-    )
-    total_suppliers = suppliers_result.scalar() or 0
-
-    # Total buyers
-    buyers_result = await db.execute(
-        select(func.count(AgenticProfile.id)).where(AgenticProfile.is_buyer == True)
-    )
-    total_buyers = buyers_result.scalar() or 0
-
     # Recent requirements (last 7 days)
     week_ago = datetime.utcnow() - timedelta(days=7)
     recent_req = await db.execute(
@@ -155,13 +167,14 @@ async def get_admin_stats(
 
     return {
         "total_users": total_users,
+        "users_with_profiles": total_profiles,
+        "users_posted_requirements": users_posted_requirements,
+        "users_received_leads": users_received_leads,
         "total_requirements": total_requirements,
         "active_requirements": active_requirements,
         "total_leads": total_leads,
         "active_negotiations": active_negotiations,
         "total_deals": total_deals,
-        "total_suppliers": total_suppliers,
-        "total_buyers": total_buyers,
         "recent_requirements": recent_requirements,
     }
 
