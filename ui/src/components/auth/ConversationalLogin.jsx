@@ -27,8 +27,10 @@ export default function ConversationalLogin() {
 
   useEffect(() => {
     // Initial welcome message
-    setTimeout(() => addBotMessage("Hi! I'm Bisdom AI. Let's get you started on India's smartest B2B commerce platform. 🚀"), 500)
-    setTimeout(() => addBotMessage("What's your mobile number? (10 digits, starting with 6-9)"), 1500)
+    setTimeout(() => addBotMessage("👋 Welcome to Bisdom!"), 300)
+    setTimeout(() => addBotMessage("I'm your AI assistant, here to help you connect with verified suppliers across India."), 1200)
+    setTimeout(() => addBotMessage("Let's get you started! What's your mobile number?"), 2400)
+    setTimeout(() => addBotMessage("(Enter 10 digits, starting with 6-9)"), 3200)
   }, [])
 
   const addBotMessage = (text) => {
@@ -56,19 +58,23 @@ export default function ConversationalLogin() {
       const phoneDigits = value.replace(/\D/g, '')
       if (phoneDigits.length !== 10 || !phoneDigits.match(/^[6-9]\d{9}$/)) {
         setLoading(false)
-        addBotMessage("Hmm, that doesn't look like a valid Indian mobile number. Please enter 10 digits starting with 6-9.")
+        addBotMessage("🤔 Hmm, that doesn't look right.")
+        setTimeout(() => addBotMessage("Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9."), 800)
         return
       }
 
       setPhone(phoneDigits)
 
       try {
-        await sendOTP(`+91${phoneDigits}`)
-        addBotMessage(`Perfect! I've sent a 6-digit OTP to +91 ${phoneDigits.slice(0,5)}*****`)
-        addBotMessage("Please enter the OTP to verify your number:")
+        // Send OTP without +91 prefix (API expects plain 10 digits)
+        await sendOTP(phoneDigits)
+        addBotMessage(`✅ Perfect! I've sent a 6-digit OTP to +91 ${phoneDigits.slice(0,5)}*****`)
+        setTimeout(() => addBotMessage("📱 Please check your SMS and enter the OTP below:"), 1000)
         setCurrentStep('otp')
       } catch (err) {
-        addBotMessage("Oops! Couldn't send the OTP. Please try again or check your number.")
+        const errorMsg = err.response?.data?.detail?.[0]?.msg || err.response?.data?.detail || "Couldn't send OTP"
+        addBotMessage(`❌ ${errorMsg}`)
+        addBotMessage("Please check your number and try again.")
       } finally {
         setLoading(false)
       }
@@ -77,15 +83,17 @@ export default function ConversationalLogin() {
       const otpDigits = value.replace(/\D/g, '')
       if (otpDigits.length !== 6) {
         setLoading(false)
-        addBotMessage("The OTP should be 6 digits. Please check and try again.")
+        addBotMessage("🔢 The OTP should be exactly 6 digits.")
+        setTimeout(() => addBotMessage("Please check your SMS and enter all 6 digits."), 800)
         return
       }
 
       try {
-        const response = await verifyOTP(`+91${phone}`, otpDigits)
+        // Verify OTP with plain phone number (no +91 prefix)
+        const response = await verifyOTP(phone, otpDigits)
         localStorage.setItem('token', response.data.access_token)
 
-        addBotMessage("✅ Verified! Welcome to Bisdom!")
+        addBotMessage("🎉 Verified! Welcome to Bisdom!")
         addBotMessage("Let me take you to your workspace...")
 
         setTimeout(() => {
@@ -97,7 +105,9 @@ export default function ConversationalLogin() {
         }, 2000)
       } catch (err) {
         setLoading(false)
-        addBotMessage("That OTP doesn't match. Please try again or request a new one.")
+        const errorMsg = err.response?.data?.detail || "OTP verification failed"
+        addBotMessage(`❌ ${errorMsg}`)
+        addBotMessage("Please check the OTP and try again.")
       }
     }
   }
@@ -213,12 +223,14 @@ export default function ConversationalLogin() {
                     background: 'rgba(255,255,255,0.05)',
                     border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: '16px 16px 16px 4px',
-                    padding: '14px 18px',
+                    padding: '16px 20px',
                     maxWidth: '85%',
                     color: '#fff',
-                    fontSize: 15,
-                    lineHeight: 1.6,
-                    backdropFilter: 'blur(10px)'
+                    fontSize: idx === 0 ? 17 : 15, // Larger font for first message
+                    fontWeight: idx === 0 ? 600 : 400,
+                    lineHeight: 1.7,
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                   }}>
                     {msg.text}
                   </div>
@@ -231,11 +243,13 @@ export default function ConversationalLogin() {
                   <div style={{
                     background: 'linear-gradient(135deg, #054E94, #1A8FFF)',
                     borderRadius: '16px 16px 4px 16px',
-                    padding: '14px 18px',
+                    padding: '16px 20px',
                     maxWidth: '85%',
                     color: '#fff',
-                    fontSize: 15,
+                    fontSize: 16,
+                    fontWeight: 500,
                     lineHeight: 1.6,
+                    letterSpacing: '0.3px',
                     boxShadow: '0 4px 12px rgba(96,165,250,0.3)'
                   }}>
                     {msg.text}
