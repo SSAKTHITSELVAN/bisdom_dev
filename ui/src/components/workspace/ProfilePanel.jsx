@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getConfig, updateConfig } from '@/api/config'
 import Spinner from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
-import { Save, Edit3, Eye } from 'lucide-react'
+import { Save, Edit3, Building2, Package, MapPin, DollarSign, Truck, Award, FileText, Info } from 'lucide-react'
 
 export default function ProfilePanel() {
   const [profileMd, setProfileMd] = useState('')
@@ -33,18 +33,222 @@ export default function ProfilePanel() {
     finally { setSaving(false) }
   }
 
-  const renderMd = (text) => {
+  // Parse markdown and categorize into structured sections
+  const parseProfile = (text) => {
     if (!text) return null
-    return text.split('\n').map((line, i) => {
-      if (line.startsWith('# '))  return <h1 key={i} style={{ fontSize:18, fontWeight:800, color:'#fff', margin:'16px 0 8px' }}>{line.slice(2)}</h1>
-      if (line.startsWith('## ')) return <h2 key={i} style={{ fontSize:14, fontWeight:700, color:'#93c5fd', margin:'14px 0 6px', borderBottom:'1px solid rgba(255,255,255,0.08)', paddingBottom:4 }}>{line.slice(3)}</h2>
-      if (line.startsWith('### '))return <h3 key={i} style={{ fontSize:13, fontWeight:700, color:'#cbd5e1', margin:'10px 0 4px' }}>{line.slice(4)}</h3>
-      if (line.startsWith('- '))  return <div key={i} style={{ fontSize:13, color:'rgba(255,255,255,0.75)', padding:'2px 0 2px 12px', display:'flex', gap:8 }}><span style={{color:'#60a5fa',flexShrink:0}}>·</span>{line.slice(2).replace(/\*\*(.*?)\*\*/g, (_,t) => t)}</div>
-      if (line.startsWith('---')) return <hr key={i} style={{ border:'none', borderTop:'1px solid rgba(255,255,255,0.08)', margin:'12px 0' }}/>
-      if (line.trim() === '')     return <div key={i} style={{ height:6 }}/>
-      if (line.startsWith('*'))   return <p key={i} style={{ fontSize:11, color:'rgba(255,255,255,0.3)', fontStyle:'italic' }}>{line.replace(/\*/g,'')}</p>
-      return <p key={i} style={{ fontSize:13, color:'rgba(255,255,255,0.75)', lineHeight:1.6 }}>{line}</p>
-    })
+
+    const sections = {
+      overview: {},
+      catalog: [],
+      contact: {},
+      capabilities: {},
+      misc: []
+    }
+
+    let currentSection = 'overview'
+    let currentProduct = null
+    const lines = text.split('\n')
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+
+      // Section headers
+      if (line.startsWith('# ')) {
+        sections.title = line.slice(2).trim()
+        continue
+      }
+
+      if (line.startsWith('## ')) {
+        const header = line.slice(3).trim().toLowerCase()
+        if (header.includes('overview') || header.includes('supplier overview')) {
+          currentSection = 'overview'
+        } else if (header.includes('catalogue') || header.includes('catalog') || header.includes('product')) {
+          currentSection = 'catalog'
+        } else if (header.includes('contact') || header.includes('location')) {
+          currentSection = 'contact'
+        } else if (header.includes('capabilities') || header.includes('capacity') || header.includes('certification')) {
+          currentSection = 'capabilities'
+        } else {
+          currentSection = 'misc'
+        }
+        currentProduct = null
+        continue
+      }
+
+      // Product items in catalog
+      if (currentSection === 'catalog' && line.startsWith('### ') || line.startsWith('#### ')) {
+        const productName = line.replace(/^#{3,4}\s*\d*\)\s*/, '').trim()
+        currentProduct = { name: productName, details: {} }
+        sections.catalog.push(currentProduct)
+        continue
+      }
+
+      // Key-value pairs (bullet points)
+      if (line.startsWith('- ')) {
+        const content = line.slice(2).trim()
+        const colonIdx = content.indexOf(':')
+
+        if (colonIdx > 0) {
+          const key = content.slice(0, colonIdx).trim()
+          const value = content.slice(colonIdx + 1).trim()
+
+          if (currentProduct && currentSection === 'catalog') {
+            currentProduct.details[key] = value
+          } else if (currentSection === 'overview') {
+            sections.overview[key] = value
+          } else if (currentSection === 'contact') {
+            sections.contact[key] = value
+          } else if (currentSection === 'capabilities') {
+            sections.capabilities[key] = value
+          } else if (currentSection === 'misc') {
+            sections.misc.push({ key, value })
+          }
+        }
+      }
+    }
+
+    return sections
+  }
+
+  const renderParsedProfile = () => {
+    const parsed = parseProfile(profileMd)
+    if (!parsed) return null
+
+    const KeyValue = ({ label, value, icon: Icon }) => (
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10 }}>
+        {Icon && (
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: 'rgba(59,130,246,0.1)',
+            border: '1px solid rgba(59,130,246,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Icon size={14} color="#60a5fa" />
+          </div>
+        )}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 3 }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>
+            {value}
+          </div>
+        </div>
+      </div>
+    )
+
+    const Section = ({ title, icon: Icon, children }) => (
+      <div style={{
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 16
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          {Icon && (
+            <div style={{
+              width: 36, height: 36, borderRadius: 9,
+              background: 'rgba(59,130,246,0.15)',
+              border: '1px solid rgba(59,130,246,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <Icon size={16} color="#60a5fa" />
+            </div>
+          )}
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>
+            {title}
+          </h3>
+        </div>
+        {children}
+      </div>
+    )
+
+    const ProductCard = ({ product }) => (
+      <div style={{
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: 10,
+        padding: 16,
+        marginBottom: 12
+      }}>
+        <h4 style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', marginBottom: 12 }}>
+          {product.name}
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          {Object.entries(product.details).map(([key, value], i) => (
+            <div key={i} style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3
+            }}>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                {key}
+              </span>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+
+    return (
+      <div className="fade-in" style={{ maxWidth: 900 }}>
+        {parsed.title && (
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0 }}>
+              {parsed.title}
+            </h1>
+          </div>
+        )}
+
+        {Object.keys(parsed.overview).length > 0 && (
+          <Section title="Supplier Overview" icon={Building2}>
+            {Object.entries(parsed.overview).map(([key, value], i) => (
+              <KeyValue key={i} label={key} value={value} />
+            ))}
+          </Section>
+        )}
+
+        {Object.keys(parsed.contact).length > 0 && (
+          <Section title="Contact Information" icon={MapPin}>
+            {Object.entries(parsed.contact).map(([key, value], i) => (
+              <KeyValue key={i} label={key} value={value} />
+            ))}
+          </Section>
+        )}
+
+        {Object.keys(parsed.capabilities).length > 0 && (
+          <Section title="Capabilities & Certifications" icon={Award}>
+            {Object.entries(parsed.capabilities).map(([key, value], i) => (
+              <KeyValue key={i} label={key} value={value} />
+            ))}
+          </Section>
+        )}
+
+        {parsed.catalog.length > 0 && (
+          <Section title="Product Catalogue" icon={Package}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 16 }}>
+              {parsed.catalog.length} product{parsed.catalog.length !== 1 ? 's' : ''} listed
+            </div>
+            {parsed.catalog.map((product, i) => (
+              <ProductCard key={i} product={product} />
+            ))}
+          </Section>
+        )}
+
+        {parsed.misc.length > 0 && (
+          <Section title="Additional Information" icon={Info}>
+            {parsed.misc.map((item, i) => (
+              <KeyValue key={i} label={item.key} value={item.value} />
+            ))}
+          </Section>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -78,9 +282,9 @@ export default function ProfilePanel() {
         {loading && <div style={{ display:'flex', justifyContent:'center', padding:48 }}><Spinner size={24} color="rgba(255,255,255,0.3)"/></div>}
 
         {!loading && (
-          <div style={{ maxWidth:680 }}>
+          <div>
             {editMode ? (
-              <div>
+              <div style={{ maxWidth: 900 }}>
                 <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginBottom:8, display:'flex', alignItems:'center', gap:6 }}>
                   <Edit3 size={11}/> Editing profile — supports Markdown formatting
                 </div>
@@ -99,9 +303,9 @@ export default function ProfilePanel() {
                 </p>
               </div>
             ) : (
-              <div className="fade-in">
+              <>
                 {profileMd
-                  ? <div>{renderMd(profileMd)}</div>
+                  ? renderParsedProfile()
                   : <div style={{ textAlign:'center', padding:'48px 0' }}>
                       <p style={{ color:'rgba(255,255,255,0.3)', fontSize:13 }}>No profile yet.</p>
                       <p style={{ color:'rgba(255,255,255,0.2)', fontSize:11, marginTop:6 }}>
@@ -112,7 +316,7 @@ export default function ProfilePanel() {
                       </button>
                     </div>
                 }
-              </div>
+              </>
             )}
           </div>
         )}

@@ -77,6 +77,8 @@ export default function NewRequirementChat() {
   const [confirming, setConfirming] = useState(false)
   const [confirmed, setConfirmed]   = useState(false)
   const [started, setStarted]       = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [requirementSummary, setRequirementSummary] = useState(null)
   const bottomRef = useRef(null)
   const inputRef  = useRef(null)
   const { goWelcome, goRequirement, triggerRefresh } = useWorkspaceStore()
@@ -102,6 +104,7 @@ export default function NewRequirementChat() {
       setIsComplete(is_complete)
       setMessages(p => [...p, { role:'ai', content: ai_response }])
       if (is_complete && requirement_summary) {
+        setRequirementSummary(requirement_summary)
         const budgetText = requirement_summary.budget_max ? `₹${requirement_summary.budget_max} max` : 'Budget flexible'
         setMessages(p => [...p, {
           role:'system',
@@ -112,7 +115,12 @@ export default function NewRequirementChat() {
     finally { setLoading(false); setTimeout(() => inputRef.current?.focus(), 80) }
   }
 
+  const handleConfirmClick = () => {
+    setShowConfirmModal(true)
+  }
+
   const handleConfirm = async () => {
+    setShowConfirmModal(false)
     setConfirming(true)
     try {
       await confirmRequirement(reqId)
@@ -214,7 +222,7 @@ export default function NewRequirementChat() {
 
           {isComplete && !confirmed && (
             <div style={{ marginTop:20 }} className="slide-up">
-              <button onClick={handleConfirm} disabled={confirming}
+              <button onClick={handleConfirmClick} disabled={confirming}
                 className="btn-primary"
                 style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, width:'auto', padding:'12px 28px' }}>
                 {confirming ? <Spinner size={15}/> : <CheckCircle size={15}/>}
@@ -265,6 +273,149 @@ export default function NewRequirementChat() {
           </p>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: 20
+        }} onClick={() => setShowConfirmModal(false)}>
+          <div style={{
+            background: '#0d1f3c', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 16, padding: 28, maxWidth: 500, width: '100%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+          }} onClick={e => e.stopPropagation()} className="slide-up">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10,
+                background: 'rgba(59,130,246,0.15)',
+                border: '1px solid rgba(59,130,246,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <CheckCircle size={20} color="#60a5fa" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0 }}>
+                  Confirm Requirement
+                </h3>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0, marginTop: 2 }}>
+                  Review before posting to suppliers
+                </p>
+              </div>
+            </div>
+
+            {requirementSummary && (
+              <div style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 20
+              }}>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 4 }}>
+                    PRODUCT
+                  </div>
+                  <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>
+                    {requirementSummary.product}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 4 }}>
+                      QUANTITY
+                    </div>
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
+                      {requirementSummary.quantity} {requirementSummary.quantity_unit || 'units'}
+                    </div>
+                  </div>
+
+                  {requirementSummary.budget_max && (
+                    <div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 4 }}>
+                        BUDGET
+                      </div>
+                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
+                        ₹{requirementSummary.budget_max} max
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {requirementSummary.delivery_location && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 4 }}>
+                      DELIVERY LOCATION
+                    </div>
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
+                      {requirementSummary.delivery_location}
+                    </div>
+                  </div>
+                )}
+
+                {requirementSummary.delivery_days && (
+                  <div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 4 }}>
+                      DELIVERY TIMELINE
+                    </div>
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
+                      {requirementSummary.delivery_days} days
+                    </div>
+                  </div>
+                )}
+
+                {requirementSummary.specifications && Object.keys(requirementSummary.specifications).length > 0 && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginBottom: 6 }}>
+                      SPECIFICATIONS
+                    </div>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.6 }}>
+                      {Object.entries(requirementSummary.specifications).map(([key, value]) => (
+                        <div key={key} style={{ marginBottom: 3 }}>
+                          <span style={{ color: 'rgba(255,255,255,0.5)' }}>{key}:</span> {value}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{
+              background: 'rgba(59,130,246,0.08)',
+              border: '1px solid rgba(59,130,246,0.2)',
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 20
+            }}>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.6 }}>
+                By confirming, AI agents will match this requirement with suppliers and begin automated negotiations on your behalf.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="btn-ghost"
+                style={{ flex: 1, padding: '12px 20px', fontSize: 13 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                className="btn-primary"
+                style={{ flex: 1, padding: '12px 20px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                <CheckCircle size={15} />
+                Confirm & Post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

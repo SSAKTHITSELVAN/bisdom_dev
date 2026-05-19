@@ -11,6 +11,12 @@ import RequirementOverview from '@/components/workspace/RequirementOverview'
 import ConversationView from '@/components/workspace/ConversationView'
 import ProfilePanel from '@/components/workspace/ProfilePanel'
 import SettingsPanel from '@/components/workspace/SettingsPanel'
+import AdminLogin from '@/components/admin/AdminLogin'
+import AdminLayout from '@/components/admin/AdminLayout'
+import AdminDashboard from '@/components/admin/AdminDashboard'
+import AdminRequirements from '@/components/admin/AdminRequirements'
+import AdminUsers from '@/components/admin/AdminUsers'
+import AdminMap from '@/components/admin/AdminMap'
 
 const Protected = ({ children }) => (
   <ProtectedRoute>{children}</ProtectedRoute>
@@ -43,6 +49,16 @@ export default function App() {
           <Route path="chat/:leadId"       element={<ConversationView/>}/>
           <Route path="profile"   element={<ProfilePanel/>}/>
           <Route path="settings"  element={<SettingsPanel/>}/>
+        </Route>
+
+        {/* Admin routes */}
+        <Route path="/admin/login" element={<AdminLogin/>}/>
+        <Route path="/admin" element={<AdminLayout/>}>
+          <Route index element={<Navigate to="/admin/dashboard" replace/>}/>
+          <Route path="dashboard" element={<AdminDashboard/>}/>
+          <Route path="requirements" element={<AdminRequirements/>}/>
+          <Route path="users" element={<AdminUsers/>}/>
+          <Route path="map" element={<AdminMap/>}/>
         </Route>
 
         <Route path="/"   element={<Navigate to="/workspace" replace/>}/>

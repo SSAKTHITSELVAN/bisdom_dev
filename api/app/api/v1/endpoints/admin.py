@@ -1,10 +1,10 @@
 """
 Admin endpoint — overview of all posts, buyers, sellers, matches.
-No auth for now (add API key in production).
+Time-based password authentication: Current time in HHMM format (e.g., 1430 for 14:30).
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, desc
 from app.db.base import get_db
 from app.models.user import User
 from app.models.profile import AgenticProfile
@@ -12,12 +12,128 @@ from app.models.requirement import Requirement
 from app.models.lead import Lead
 from app.models.conversation import Conversation, Message
 from app.models.deal import Deal
+from datetime import datetime, timedelta
+from typing import Optional
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
+def verify_admin_password(password: str) -> bool:
+    """Verify time-based admin password. Format: HHMM (e.g., 1430 for 14:30)"""
+    now = datetime.now()
+    # Get current time in HHMM format
+    current_time_password = now.strftime("%H%M")
+
+    # Also accept previous minute (for transition period)
+    prev_minute = now - timedelta(minutes=1)
+    prev_time_password = prev_minute.strftime("%H%M")
+
+    return password == current_time_password or password == prev_time_password
+
+
+def get_admin_password(authorization: str = Header(None)) -> str:
+    """Extract and verify admin password from Authorization header"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Admin authorization required")
+
+    # Expect format: "Bearer 1430" or just "1430"
+    password = authorization.replace("Bearer ", "").strip()
+
+    if not verify_admin_password(password):
+        raise HTTPException(status_code=403, detail="Invalid admin password")
+
+    return password
+
+
+@router.post("/login")
+async def admin_login(password: str):
+    """Verify admin password (time-based)"""
+    if not verify_admin_password(password):
+        raise HTTPException(status_code=403, detail="Invalid admin password")
+
+    return {
+        "success": True,
+        "message": "Admin access granted",
+        "token": password,  # Return password as token for subsequent requests
+    }
+
+
+@router.get("/stats")
+async def get_admin_stats(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+):
+    """Get dashboard statistics"""
+
+    # Total users
+    users_result = await db.execute(select(func.count(User.id)))
+    total_users = users_result.scalar() or 0
+
+    # Total requirements
+    req_result = await db.execute(select(func.count(Requirement.id)))
+    total_requirements = req_result.scalar() or 0
+
+    # Active requirements
+    active_req_result = await db.execute(
+        select(func.count(Requirement.id)).where(Requirement.is_active == True)
+    )
+    active_requirements = active_req_result.scalar() or 0
+
+    # Total leads
+    leads_result = await db.execute(select(func.count(Lead.id)))
+    total_leads = leads_result.scalar() or 0
+
+    # Active negotiations
+    negotiating_leads = await db.execute(
+        select(func.count(Lead.id)).where(Lead.status == "negotiating")
+    )
+    active_negotiations = negotiating_leads.scalar() or 0
+
+    # Completed deals
+    completed_deals = await db.execute(
+        select(func.count(Lead.id)).where(Lead.status == "deal_confirmed")
+    )
+    total_deals = completed_deals.scalar() or 0
+
+    # Total suppliers
+    suppliers_result = await db.execute(
+        select(func.count(AgenticProfile.id)).where(AgenticProfile.is_supplier == True)
+    )
+    total_suppliers = suppliers_result.scalar() or 0
+
+    # Total buyers
+    buyers_result = await db.execute(
+        select(func.count(AgenticProfile.id)).where(AgenticProfile.is_buyer == True)
+    )
+    total_buyers = buyers_result.scalar() or 0
+
+    # Recent requirements (last 7 days)
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    recent_req = await db.execute(
+        select(func.count(Requirement.id)).where(Requirement.created_at >= week_ago)
+    )
+    recent_requirements = recent_req.scalar() or 0
+
+    return {
+        "total_users": total_users,
+        "total_requirements": total_requirements,
+        "active_requirements": active_requirements,
+        "total_leads": total_leads,
+        "active_negotiations": active_negotiations,
+        "total_deals": total_deals,
+        "total_suppliers": total_suppliers,
+        "total_buyers": total_buyers,
+        "recent_requirements": recent_requirements,
+    }
+
+
 @router.get("/overview")
-async def admin_overview(db: AsyncSession = Depends(get_db)):
+async def admin_overview(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+):
     """Full system overview — users, posts, matches, deals."""
 
     # Users
@@ -143,7 +259,10 @@ async def admin_overview(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/fix-profiles")
-async def fix_profiles(db: AsyncSession = Depends(get_db)):
+async def fix_profiles(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+):
     """
     Dev utility — marks all onboarded profiles as both buyer+supplier
     and sets profile_build_status=complete so matching works.
@@ -172,7 +291,11 @@ async def fix_profiles(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/conversations/{lead_id}")
-async def get_lead_conversation(lead_id: int, db: AsyncSession = Depends(get_db)):
+async def get_lead_conversation(
+    lead_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+):
     """See full conversation for any lead."""
     conv_result = await db.execute(
         select(Conversation).where(Conversation.lead_id == lead_id)
@@ -204,7 +327,11 @@ async def get_lead_conversation(lead_id: int, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/rematch/{requirement_id}")
-async def rematch_requirement(requirement_id: int, db: AsyncSession = Depends(get_db)):
+async def rematch_requirement(
+    requirement_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+):
     """
     Manually re-run matching + initiate agent conversations for a requirement.
     Use this for requirements that got stuck in 'matching' status.
@@ -243,7 +370,10 @@ async def rematch_requirement(requirement_id: int, db: AsyncSession = Depends(ge
 
 
 @router.get("/profiles")
-async def list_profiles(db: AsyncSession = Depends(get_db)):
+async def list_profiles(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+):
     """See all profiles with their matching eligibility."""
     result = await db.execute(select(AgenticProfile))
     profiles = result.scalars().all()
@@ -263,3 +393,239 @@ async def list_profiles(db: AsyncSession = Depends(get_db)):
         }
         for p in profiles
     ]
+
+
+@router.get("/requirements")
+async def list_all_requirements(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+    skip: int = 0,
+    limit: int = 50,
+    status: Optional[str] = None,
+):
+    """List all requirements with buyer info"""
+
+    query = select(Requirement, User).join(User, Requirement.buyer_id == User.id)
+
+    if status:
+        query = query.where(Requirement.enrichment_status == status)
+
+    query = query.order_by(desc(Requirement.created_at)).offset(skip).limit(limit)
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    output = []
+    for req, buyer in rows:
+        # Get lead count
+        leads_count_result = await db.execute(
+            select(func.count(Lead.id)).where(Lead.requirement_id == req.id)
+        )
+        leads_count = leads_count_result.scalar() or 0
+
+        output.append({
+            "id": req.id,
+            "product": req.product,
+            "quantity": req.quantity,
+            "quantity_unit": req.quantity_unit,
+            "budget_max": req.budget_max,
+            "budget_unit": req.budget_unit,
+            "delivery_location": req.delivery_location,
+            "enrichment_status": req.enrichment_status,
+            "created_at": req.created_at.isoformat() if req.created_at else None,
+            "confirmed_at": req.confirmed_at.isoformat() if req.confirmed_at else None,
+            "buyer_phone": buyer.phone if buyer else None,
+            "buyer_id": req.buyer_id,
+            "leads_count": leads_count,
+            "specifications": req.specifications,
+        })
+
+    return {"requirements": output, "total": len(output)}
+
+
+@router.get("/requirements/{requirement_id}/matches")
+async def get_requirement_matches(
+    requirement_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+):
+    """Get all matching profiles with scores for a requirement"""
+
+    # Get requirement
+    req_result = await db.execute(
+        select(Requirement).where(Requirement.id == requirement_id)
+    )
+    requirement = req_result.scalar_one_or_none()
+    if not requirement:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+
+    # Get all leads for this requirement
+    leads_result = await db.execute(
+        select(Lead)
+        .where(Lead.requirement_id == requirement_id)
+        .order_by(desc(Lead.match_score))
+    )
+    leads = leads_result.scalars().all()
+
+    # Build matches list with profile info
+    matches = []
+    for lead in leads:
+        # Get supplier profile
+        profile_result = await db.execute(
+            select(AgenticProfile).where(AgenticProfile.user_id == lead.supplier_id)
+        )
+        profile = profile_result.scalar_one_or_none()
+
+        # Get user info
+        user_result = await db.execute(
+            select(User).where(User.id == lead.supplier_id)
+        )
+        user = user_result.scalar_one_or_none()
+
+        # Get conversation status
+        conv_result = await db.execute(
+            select(Conversation).where(Conversation.lead_id == lead.id)
+        )
+        conversation = conv_result.scalar_one_or_none()
+
+        matches.append({
+            "lead_id": lead.id,
+            "supplier_id": lead.supplier_id,
+            "supplier_name": profile.trade_name if profile else "Unknown",
+            "supplier_phone": user.phone if user else None,
+            "match_score": lead.match_score,
+            "status": lead.status,
+            "negotiation_round": lead.negotiation_round,
+            "current_offer_price": lead.current_offer_price,
+            "current_lead_time": lead.current_lead_time,
+            "location": f"{profile.city}, {profile.state}" if profile and profile.city else None,
+            "product_categories": profile.product_categories if profile else [],
+            "reliability_score": profile.reliability_score if profile else 0,
+            "conversation_mode": conversation.mode if conversation else None,
+            "created_at": lead.created_at.isoformat() if lead.created_at else None,
+        })
+
+    return {
+        "requirement": {
+            "id": requirement.id,
+            "product": requirement.product,
+            "quantity": requirement.quantity,
+            "quantity_unit": requirement.quantity_unit,
+            "budget_max": requirement.budget_max,
+            "delivery_location": requirement.delivery_location,
+        },
+        "matches": matches,
+        "total_matches": len(matches),
+    }
+
+
+@router.get("/users")
+async def list_all_users(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+    skip: int = 0,
+    limit: int = 100,
+    role: Optional[str] = None,  # "buyer" or "supplier"
+):
+    """List all users with their profiles"""
+
+    query = select(User).order_by(desc(User.created_at)).offset(skip).limit(limit)
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    output = []
+    for user in users:
+        # Get profile
+        profile_result = await db.execute(
+            select(AgenticProfile).where(AgenticProfile.user_id == user.id)
+        )
+        profile = profile_result.scalar_one_or_none()
+
+        # Filter by role if specified
+        if role == "buyer" and (not profile or not profile.is_buyer):
+            continue
+        if role == "supplier" and (not profile or not profile.is_supplier):
+            continue
+
+        # Get requirements count (if buyer)
+        req_count = 0
+        if profile and profile.is_buyer:
+            req_count_result = await db.execute(
+                select(func.count(Requirement.id)).where(Requirement.buyer_id == user.id)
+            )
+            req_count = req_count_result.scalar() or 0
+
+        # Get leads count (if supplier)
+        leads_count = 0
+        if profile and profile.is_supplier:
+            leads_count_result = await db.execute(
+                select(func.count(Lead.id)).where(Lead.supplier_id == user.id)
+            )
+            leads_count = leads_count_result.scalar() or 0
+
+        output.append({
+            "id": user.id,
+            "phone_number": user.phone,
+            "is_verified": user.is_verified,
+            "onboarding_complete": user.is_onboarded,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "profile": {
+                "trade_name": profile.trade_name if profile else None,
+                "gstin": profile.gstin if profile else None,
+                "is_buyer": profile.is_buyer if profile else False,
+                "is_supplier": profile.is_supplier if profile else False,
+                "city": profile.city if profile else None,
+                "state": profile.state if profile else None,
+                "reliability_score": profile.reliability_score if profile else 0,
+                "profile_build_status": profile.profile_build_status if profile else None,
+            } if profile else None,
+            "requirements_count": req_count,
+            "leads_count": leads_count,
+        })
+
+    return {"users": output, "total": len(output)}
+
+
+@router.get("/map-data")
+async def get_map_data(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_password),
+):
+    """Get supplier locations for map visualization"""
+
+    profiles_result = await db.execute(
+        select(AgenticProfile).where(
+            AgenticProfile.is_supplier == True,
+            AgenticProfile.city.isnot(None),
+            AgenticProfile.state.isnot(None)
+        )
+    )
+    profiles = profiles_result.scalars().all()
+
+    locations = []
+    for profile in profiles:
+        # Get user info
+        user_result = await db.execute(
+            select(User).where(User.id == profile.user_id)
+        )
+        user = user_result.scalar_one_or_none()
+
+        # Get leads count
+        leads_count_result = await db.execute(
+            select(func.count(Lead.id)).where(Lead.supplier_id == profile.user_id)
+        )
+        leads_count = leads_count_result.scalar() or 0
+
+        locations.append({
+            "id": profile.id,
+            "supplier_name": profile.trade_name,
+            "city": profile.city,
+            "state": profile.state,
+            "location_text": f"{profile.city}, {profile.state}",
+            "product_categories": profile.product_categories or [],
+            "reliability_score": profile.reliability_score,
+            "leads_count": leads_count,
+            "phone": user.phone if user else None,
+        })
+
+    return {"locations": locations, "total": len(locations)}
