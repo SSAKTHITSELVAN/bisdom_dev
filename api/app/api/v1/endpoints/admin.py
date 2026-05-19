@@ -370,40 +370,49 @@ async def rematch_requirement(
     _: str = Depends(get_admin_token),
 ):
     """
-    Manually re-run matching + initiate agent conversations for a requirement.
-    Use this for requirements that got stuck in 'matching' status.
+    Manually re-run matching for a requirement.
+    Use this for requirements that were never matched or need rematching.
     """
     from app.models.requirement import Requirement
     from app.services.matching_service import match_requirement_to_suppliers
 
-    req_result = await db.execute(
-        select(Requirement).where(Requirement.id == requirement_id)
-    )
-    req = req_result.scalar_one_or_none()
-    if not req:
-        return {"error": f"Requirement #{requirement_id} not found"}
+    try:
+        req_result = await db.execute(
+            select(Requirement).where(Requirement.id == requirement_id)
+        )
+        req = req_result.scalar_one_or_none()
+        if not req:
+            return {"error": f"Requirement #{requirement_id} not found"}
 
-    # Run matching
-    leads = await match_requirement_to_suppliers(req, db)
-    await db.commit()
+        # Run matching
+        logger.info(f"[ADMIN] Manually triggering match for requirement #{requirement_id}")
+        leads = await match_requirement_to_suppliers(req, db)
+        await db.commit()
 
-    # Initiate agent conversations for new leads
-    from app.api.v1.endpoints.requirements import _initiate_agent_conversation
-    initiated = []
-    for lead in leads:
+        # Try to initiate agent conversations (optional - won't fail if this errors)
+        initiated = []
         try:
-            await _initiate_agent_conversation(lead.id)
-            initiated.append(lead.id)
+            from app.api.v1.endpoints.requirements import _initiate_agent_conversation
+            for lead in leads:
+                try:
+                    await _initiate_agent_conversation(lead.id)
+                    initiated.append(lead.id)
+                except Exception as e:
+                    logger.warning(f"[ADMIN] Could not initiate conversation for lead {lead.id}: {e}")
         except Exception as e:
-            pass
+            logger.warning(f"[ADMIN] Agent initiation not available: {e}")
 
-    return {
-        "requirement_id": requirement_id,
-        "product": req.product,
-        "leads_created": len(leads),
-        "conversations_initiated": len(initiated),
-        "lead_ids": [l.id for l in leads],
-    }
+        return {
+            "success": True,
+            "requirement_id": requirement_id,
+            "product": req.product,
+            "leads_created": len(leads),
+            "conversations_initiated": len(initiated),
+            "lead_ids": [l.id for l in leads],
+        }
+    except Exception as e:
+        logger.error(f"[ADMIN] Error in rematch: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Rematch failed: {str(e)}")
 
 
 @router.post("/recalculate-scores")
