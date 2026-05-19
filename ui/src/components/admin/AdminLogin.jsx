@@ -16,10 +16,12 @@ export default function AdminLogin() {
       navigate('/admin/dashboard')
     }
 
-    // Update time display
+    // Update time display (SERVER TIME - UTC)
     const updateTime = () => {
       const now = new Date()
+      // Show UTC time (server time) instead of local time
       setCurrentTime(now.toLocaleTimeString('en-US', {
+        timeZone: 'UTC',
         hour12: false,
         hour: '2-digit',
         minute: '2-digit'
@@ -107,7 +109,7 @@ export default function AdminLogin() {
           <Clock size={20} color="#60a5fa" />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>
-              Current Time
+              Server Time (UTC)
             </div>
             <div style={{ fontSize: 24, fontWeight: 700, color: '#60a5fa', fontFamily: 'monospace' }}>
               {currentTime}
