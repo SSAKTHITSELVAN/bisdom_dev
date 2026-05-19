@@ -92,20 +92,25 @@ export default function AdminDashboard() {
 
     const max = Math.max(...data, 1)
     const barCount = data.length
-    const barWidth = 100 / barCount
     const showAllLabels = barCount <= 14  // Show all labels only if 14 or fewer bars
 
     return (
       <div style={{ width: '100%', position: 'relative' }}>
-        {/* Chart area */}
+        {/* Chart area with horizontal scroll for year view */}
         <div style={{
           width: '100%',
-          height,
-          display: 'flex',
-          alignItems: 'flex-end',
-          gap: barCount > 30 ? '1px' : '4px',
-          padding: '0 8px'
+          overflowX: barCount > 90 ? 'auto' : 'visible',
+          overflowY: 'visible'
         }}>
+          <div style={{
+            width: barCount > 90 ? `${barCount * 8}px` : '100%',  // Fixed width for year view
+            minWidth: '100%',
+            height,
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: barCount > 90 ? '2px' : barCount > 30 ? '1px' : '4px',
+            padding: '0 8px'
+          }}>
           {data.map((value, idx) => {
             const barHeight = max > 0 ? (value / max) * 100 : 0
             return (
@@ -151,13 +156,22 @@ export default function AdminDashboard() {
           })}
         </div>
 
+          </div>
+        </div>
+
         {/* X-axis labels */}
         <div style={{
-          display: 'flex',
-          marginTop: 8,
-          padding: '0 8px',
-          gap: barCount > 30 ? '1px' : '4px'
+          width: '100%',
+          overflowX: barCount > 90 ? 'auto' : 'visible'
         }}>
+          <div style={{
+            width: barCount > 90 ? `${barCount * 8}px` : '100%',
+            minWidth: '100%',
+            display: 'flex',
+            marginTop: 8,
+            padding: '0 8px',
+            gap: barCount > 90 ? '2px' : barCount > 30 ? '1px' : '4px'
+          }}>
           {labels.map((label, idx) => {
             // Show label based on period and position
             const showLabel = showAllLabels ||
@@ -182,6 +196,7 @@ export default function AdminDashboard() {
               </div>
             )
           })}
+          </div>
         </div>
 
         {/* Y-axis reference line */}

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import ConversationalLogin from '@/components/auth/ConversationalLogin'
 import PhonePage from '@/components/auth/PhonePage'
 import OTPPage from '@/components/auth/OTPPage'
 import OnboardingPage from '@/components/onboarding/OnboardingPage'
@@ -34,8 +35,11 @@ export default function App() {
         }
       }}/>
       <Routes>
-        {/* Auth */}
-        <Route path="/login"      element={<PhonePage/>}/>
+        {/* Auth - New Conversational Flow */}
+        <Route path="/login" element={<ConversationalLogin/>}/>
+
+        {/* Old Auth Flow (kept as fallback) */}
+        <Route path="/login-old"      element={<PhonePage/>}/>
         <Route path="/verify-otp" element={<OTPPage/>}/>
         <Route path="/onboarding" element={
           <ProtectedRoute requireOnboarding={false}><OnboardingPage/></ProtectedRoute>
