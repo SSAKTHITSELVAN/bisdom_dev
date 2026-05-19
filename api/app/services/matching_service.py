@@ -16,7 +16,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-MINIMUM_FIT_SCORE = 25.0  # Lowered to ensure more matches (TF-IDF based)
+MINIMUM_FIT_SCORE = 0.0  # Temporarily 0 to debug scoring (TF-IDF based)
 
 
 async def match_requirement_to_suppliers(
