@@ -21,12 +21,22 @@ export default function ConversationalLogin() {
   const navigate = useNavigate()
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }, 100)
   }
 
   useEffect(() => {
     scrollToBottom()
   }, [messages, isTyping])
+
+  // Ensure scroll container starts at top
+  useEffect(() => {
+    const container = document.getElementById('chat-messages-container')
+    if (container && messages.length === 0) {
+      container.scrollTop = 0
+    }
+  }, [messages])
 
   useEffect(() => {
     // Prevent duplicate initialization in React StrictMode
@@ -124,19 +134,40 @@ export default function ConversationalLogin() {
 
         addBotMessage("🎉 Verified!")
 
-        // For Sign Up - ask for GSTIN
-        if (authType === 'signup' && !response.data.is_onboarded) {
+        // Check if user is already onboarded
+        const isOnboarded = response.data.is_onboarded
+
+        // For Sign Up (new user) - ask for GSTIN
+        if (authType === 'signup' && !isOnboarded) {
           setTimeout(() => addBotMessage("Now, let's verify your business."), 1000)
           setTimeout(() => addBotMessage("What's your company's GSTIN?"), 1800)
           setTimeout(() => addBotMessage("(15-character GST identification number)"), 2600)
           setCurrentStep('gstin')
           setLoading(false)
-        } else {
-          // For Sign In - go directly to workspace
-          addBotMessage("Welcome back to Bisdom!")
+        }
+        // For Sign In (existing user) - go to workspace
+        else if (authType === 'signin' && isOnboarded) {
+          setLoading(false)
+          setTimeout(() => addBotMessage("Welcome back to Bisdom!"), 1000)
           setTimeout(() => {
-            navigate('/workspace')
-          }, 1500)
+            navigate('/workspace', { replace: true })
+          }, 2500)
+        }
+        // Edge case: signin but not onboarded (send to onboarding)
+        else if (authType === 'signin' && !isOnboarded) {
+          setLoading(false)
+          setTimeout(() => addBotMessage("Let's complete your profile setup..."), 1000)
+          setTimeout(() => {
+            navigate('/onboarding', { replace: true })
+          }, 2500)
+        }
+        // Edge case: signup but already onboarded (send to workspace)
+        else {
+          setLoading(false)
+          setTimeout(() => addBotMessage("Welcome back to Bisdom!"), 1000)
+          setTimeout(() => {
+            navigate('/workspace', { replace: true })
+          }, 2500)
         }
       } catch (err) {
         setLoading(false)
@@ -155,12 +186,13 @@ export default function ConversationalLogin() {
       }
 
       // Store GSTIN and proceed to onboarding
-      addBotMessage("✅ Perfect! GSTIN verified.")
-      addBotMessage("Let me set up your workspace...")
+      setLoading(false)
+      setTimeout(() => addBotMessage("✅ Perfect! GSTIN verified."), 800)
+      setTimeout(() => addBotMessage("Let me set up your workspace..."), 1600)
 
       setTimeout(() => {
-        navigate('/onboarding', { state: { gstin: gstinValue } })
-      }, 2000)
+        navigate('/onboarding', { state: { gstin: gstinValue }, replace: true })
+      }, 3000)
     }
   }
 
@@ -268,23 +300,26 @@ export default function ConversationalLogin() {
       </div>
 
       {/* Chat Messages */}
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        padding: '40px 24px 180px',
-        position: 'relative',
-        zIndex: 1,
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+      <div
+        id="chat-messages-container"
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: '40px 24px 180px',
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
         <div style={{
           maxWidth: '900px',
           margin: '0 auto',
           width: '100%',
-          minHeight: '100%',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          justifyContent: 'flex-start'
         }}>
           {messages.map((msg, idx) => (
             <div
