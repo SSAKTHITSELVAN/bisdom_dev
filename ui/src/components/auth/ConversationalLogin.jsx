@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sendOTP, verifyOTP } from '../../api/auth'
+import { useAuthStore } from '@/store/authStore'
 import Logo from '../ui/Logo'
 import Spinner from '../ui/Spinner'
 import toast from 'react-hot-toast'
-import { Bot, User, ArrowRight } from 'lucide-react'
+import { Bot, User, ArrowRight, RefreshCw } from 'lucide-react'
 
 export default function ConversationalLogin() {
   const [messages, setMessages] = useState([])
@@ -16,9 +17,12 @@ export default function ConversationalLogin() {
   const [isTyping, setIsTyping] = useState(false)
   const [initialized, setInitialized] = useState(false)
   const [showChoiceButtons, setShowChoiceButtons] = useState(true)
+  const [canResendOTP, setCanResendOTP] = useState(false)
+  const [resendTimer, setResendTimer] = useState(30)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const navigate = useNavigate()
+  const { setAuth } = useAuthStore()
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -37,6 +41,18 @@ export default function ConversationalLogin() {
       container.scrollTop = 0
     }
   }, [messages])
+
+  // Resend OTP countdown timer
+  useEffect(() => {
+    if (currentStep === 'otp' && resendTimer > 0) {
+      const timer = setTimeout(() => {
+        setResendTimer(prev => prev - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    } else if (currentStep === 'otp' && resendTimer === 0) {
+      setCanResendOTP(true)
+    }
+  }, [currentStep, resendTimer])
 
   useEffect(() => {
     // Prevent duplicate initialization in React StrictMode
@@ -84,6 +100,25 @@ export default function ConversationalLogin() {
     setCurrentStep('phone')
   }
 
+  const handleResendOTP = async () => {
+    if (!canResendOTP || loading || !phone) return
+
+    setLoading(true)
+    try {
+      await sendOTP(phone)
+      addBotMessage("✅ New OTP sent!")
+      setTimeout(() => addBotMessage("📱 Please check your SMS."), 800)
+      // Restart timer
+      setCanResendOTP(false)
+      setResendTimer(30)
+    } catch (err) {
+      const errorMsg = err.response?.data?.detail?.[0]?.msg || err.response?.data?.detail || "Couldn't resend OTP"
+      addBotMessage(`❌ ${errorMsg}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || loading) return
 
@@ -110,6 +145,9 @@ export default function ConversationalLogin() {
         addBotMessage(`✅ Perfect! I've sent a 6-digit OTP to +91 ${phoneDigits.slice(0,5)}*****`)
         setTimeout(() => addBotMessage("📱 Please check your SMS and enter the OTP below:"), 1000)
         setCurrentStep('otp')
+        // Start resend OTP timer
+        setCanResendOTP(false)
+        setResendTimer(30)
       } catch (err) {
         const errorMsg = err.response?.data?.detail?.[0]?.msg || err.response?.data?.detail || "Couldn't send OTP"
         addBotMessage(`❌ ${errorMsg}`)
@@ -130,12 +168,14 @@ export default function ConversationalLogin() {
       try {
         // Verify OTP with plain phone number (no +91 prefix)
         const response = await verifyOTP(phone, otpDigits)
-        localStorage.setItem('token', response.data.access_token)
+        const token = response.data.access_token
+        const isOnboarded = response.data.is_onboarded
+
+        // CRITICAL: Update auth store so ProtectedRoute sees the token
+        setAuth(token, null, isOnboarded)
+        localStorage.setItem('token', token)
 
         addBotMessage("🎉 Verified!")
-
-        // Check if user is already onboarded
-        const isOnboarded = response.data.is_onboarded
 
         // For Sign Up (new user) - ask for GSTIN
         if (authType === 'signup' && !isOnboarded) {
@@ -147,25 +187,25 @@ export default function ConversationalLogin() {
         }
         // For Sign In (existing user) - go to workspace
         else if (authType === 'signin' && isOnboarded) {
-          setLoading(false)
           setTimeout(() => addBotMessage("Welcome back to Bisdom!"), 1000)
           setTimeout(() => {
+            setLoading(false)
             navigate('/workspace', { replace: true })
           }, 2500)
         }
         // Edge case: signin but not onboarded (send to onboarding)
         else if (authType === 'signin' && !isOnboarded) {
-          setLoading(false)
           setTimeout(() => addBotMessage("Let's complete your profile setup..."), 1000)
           setTimeout(() => {
+            setLoading(false)
             navigate('/onboarding', { replace: true })
           }, 2500)
         }
         // Edge case: signup but already onboarded (send to workspace)
         else {
-          setLoading(false)
           setTimeout(() => addBotMessage("Welcome back to Bisdom!"), 1000)
           setTimeout(() => {
+            setLoading(false)
             navigate('/workspace', { replace: true })
           }, 2500)
         }
@@ -670,10 +710,58 @@ export default function ConversationalLogin() {
             </button>
           </div>
 
+          {/* Resend OTP Button */}
+          {currentStep === 'otp' && (
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+              {canResendOTP ? (
+                <button
+                  onClick={handleResendOTP}
+                  disabled={loading}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#60a5fa',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    transition: 'all 0.2s',
+                    opacity: loading ? 0.5 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading) {
+                      e.currentTarget.style.background = 'rgba(96,165,250,0.1)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!loading) {
+                      e.currentTarget.style.background = 'transparent'
+                    }
+                  }}
+                >
+                  <RefreshCw size={14} />
+                  Resend OTP
+                </button>
+              ) : (
+                <p style={{
+                  fontSize: 11,
+                  color: 'rgba(255,255,255,0.3)',
+                  margin: 0
+                }}>
+                  Resend OTP in {resendTimer}s
+                </p>
+              )}
+            </div>
+          )}
+
           <p style={{
             fontSize: 11,
             color: 'rgba(255,255,255,0.3)',
-            marginTop: 12,
+            marginTop: currentStep === 'otp' ? 8 : 12,
             textAlign: 'center'
           }}>
             By continuing, you agree to Bisdom's Terms of Service and Privacy Policy
