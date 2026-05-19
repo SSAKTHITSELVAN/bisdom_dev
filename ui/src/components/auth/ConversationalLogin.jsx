@@ -346,7 +346,7 @@ export default function ConversationalLogin() {
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '40px 24px 180px',
+          padding: '40px 24px 240px',
           position: 'relative',
           zIndex: 1,
           display: 'flex',
