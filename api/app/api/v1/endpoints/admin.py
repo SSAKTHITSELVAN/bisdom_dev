@@ -487,20 +487,25 @@ async def get_requirement_matches(
     _: str = Depends(get_admin_token),
 ):
     """Get all matching profiles with scores for a requirement"""
-
-    # Get requirement
-    req_result = await db.execute(
-        select(Requirement).where(Requirement.id == requirement_id)
-    )
-    requirement = req_result.scalar_one_or_none()
-    if not requirement:
-        raise HTTPException(status_code=404, detail="Requirement not found")
+    try:
+        # Get requirement
+        req_result = await db.execute(
+            select(Requirement).where(Requirement.id == requirement_id)
+        )
+        requirement = req_result.scalar_one_or_none()
+        if not requirement:
+            raise HTTPException(status_code=404, detail="Requirement not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching requirement {requirement_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     # Get all leads for this requirement
     leads_result = await db.execute(
         select(Lead)
         .where(Lead.requirement_id == requirement_id)
-        .order_by(desc(Lead.match_score))
+        .order_by(desc(Lead.fit_score))
     )
     leads = leads_result.scalars().all()
 
@@ -530,7 +535,7 @@ async def get_requirement_matches(
             "supplier_id": lead.supplier_id,
             "supplier_name": profile.trade_name if profile else "Unknown",
             "supplier_phone": user.phone if user else None,
-            "match_score": lead.match_score,
+            "fit_score": lead.fit_score,
             "status": lead.status,
             "negotiation_round": lead.negotiation_round,
             "current_offer_price": lead.current_offer_price,

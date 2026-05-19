@@ -13,7 +13,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-MINIMUM_FIT_SCORE = 40.0
+MINIMUM_FIT_SCORE = 30.0  # Lowered to ensure more matches
 
 
 async def match_requirement_to_suppliers(
@@ -104,27 +104,54 @@ async def _create_lead(
 
 
 def _calculate_basic_fit(requirement: dict, profile: AgenticProfile) -> float:
-    """Fast rule-based fit score — no AI call needed."""
-    score = 60.0  # base — any registered user is a potential supplier
+    """
+    Fast rule-based fit score — no AI call needed.
+    NOTE: All users can be BOTH buyers AND sellers simultaneously.
+    """
+    score = 50.0  # base — any registered user could potentially supply
 
-    # Product category match
+    # Product category match (most important)
     cats = profile.product_categories or []
     product = (requirement.get("product") or "").lower()
+    product_words = [w for w in product.split() if len(w) > 2]  # shorter words too
+
     if cats:
         for cat in cats:
-            if any(word in cat.lower() for word in product.split() if len(word) > 3):
-                score += 20
+            cat_lower = cat.lower()
+            # Check if any word from product appears in category
+            for word in product_words:
+                if word in cat_lower:
+                    score += 25  # Increased from 20
+                    break
+            if score > 50:  # Already got product match
                 break
-    
+
     # Location match
     location = (requirement.get("delivery_location") or "").lower()
     state = (profile.state or "").lower()
     city  = (profile.city or "").lower()
-    if location and state and (state in location or city in location):
-        score += 15
 
-    # Has pricing info
+    # More lenient location matching
+    if location and (state or city):
+        if state and state in location:
+            score += 15
+        elif city and city in location:
+            score += 15
+        elif state and location in state:  # Reverse check
+            score += 10
+        elif city and location in city:  # Reverse check
+            score += 10
+
+    # Has pricing info (shows they're serious about selling)
     if profile.pricing_bands:
+        score += 5
+
+    # Has product categories (shows they have a catalog)
+    if cats and len(cats) > 0:
+        score += 5
+
+    # Has location info (complete profile)
+    if profile.state or profile.city:
         score += 5
 
     return min(score, 100.0)
