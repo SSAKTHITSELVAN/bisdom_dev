@@ -9,15 +9,15 @@ export const useAuthStore = create(
       isOnboarded: false,
       _hasHydrated: false,
       setAuth: (token, user, isOnboarded) => {
-        // Update both localStorage (for axios interceptor) and zustand
+        // CRITICAL: Use 'bisdom_token' key to match axios interceptor in client.js
         if (token) {
-          localStorage.setItem('token', token)
+          localStorage.setItem('bisdom_token', token)
         }
         set({ token, user, isOnboarded })
       },
       setOnboarded: () => set({ isOnboarded: true }),
       logout: () => {
-        localStorage.removeItem('token')
+        localStorage.removeItem('bisdom_token')
         set({ token: null, user: null, isOnboarded: false })
       },
       setHasHydrated: (state) => {
@@ -33,6 +33,10 @@ export const useAuthStore = create(
         isOnboarded: state.isOnboarded
       }),
       onRehydrateStorage: () => (state) => {
+        // After hydration, sync token to localStorage for axios interceptor
+        if (state && state.token) {
+          localStorage.setItem('bisdom_token', state.token)
+        }
         state?.setHasHydrated(true)
       },
     }

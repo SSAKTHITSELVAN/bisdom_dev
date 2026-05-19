@@ -174,10 +174,8 @@ export default function ConversationalLogin() {
         const token = response.data.access_token
         const isOnboarded = response.data.is_onboarded
 
-        // CRITICAL: Update both localStorage AND auth store
-        localStorage.setItem('token', token)
-
-        // Update zustand store (this updates both memory and persisted storage)
+        // CRITICAL: setAuth will handle localStorage with correct key 'bisdom_token'
+        // This matches axios interceptor in client.js
         setAuth(token, null, isOnboarded)
 
         addBotMessage("🎉 Verified!")
