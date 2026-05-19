@@ -92,3 +92,7 @@ export const rematchRequirement = (requirementId) => {
 export const getLeadConversation = (leadId) => {
   return adminRequest({ method: 'get', url: `/admin/conversations/${leadId}` })
 }
+
+export const getGrowthData = () => {
+  return adminRequest({ method: 'get', url: '/admin/growth-data' })
+}

@@ -1,24 +1,29 @@
 import { useState, useEffect } from 'react'
-import { getAdminStats } from '@/api/admin'
+import { getAdminStats, getGrowthData } from '@/api/admin'
 import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { Users, FileText, TrendingUp, CheckCircle, Activity, Sparkles, Building2, ShoppingCart } from 'lucide-react'
 import Spinner from '@/components/ui/Spinner'
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
+  const [growthData, setGrowthData] = useState(null)
   const [loading, setLoading] = useState(true)
   const { handleAuthError } = useAdminAuth()
 
   useEffect(() => {
-    loadStats()
+    loadData()
   }, [])
 
-  const loadStats = async () => {
+  const loadData = async () => {
     try {
-      const response = await getAdminStats()
-      setStats(response.data)
+      const [statsResponse, growthResponse] = await Promise.all([
+        getAdminStats(),
+        getGrowthData()
+      ])
+      setStats(statsResponse.data)
+      setGrowthData(growthResponse.data)
     } catch (error) {
-      console.error('Failed to load stats:', error)
+      console.error('Failed to load data:', error)
       handleAuthError(error)
     } finally {
       setLoading(false)
@@ -67,6 +72,58 @@ export default function AdminDashboard() {
       </div>
     </div>
   )
+
+  const LineChart = ({ data, dates, label, color, height = 200 }) => {
+    if (!data || data.length === 0) return null
+
+    const max = Math.max(...data, 1)
+    const points = data.map((val, idx) => ({
+      x: (idx / (data.length - 1)) * 100,
+      y: 100 - (val / max) * 100
+    }))
+
+    const pathData = points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+      .join(' ')
+
+    const areaData = `${pathData} L 100 100 L 0 100 Z`
+
+    return (
+      <div style={{ width: '100%', height }}>
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          style={{ width: '100%', height: '100%' }}
+        >
+          {/* Area fill */}
+          <path
+            d={areaData}
+            fill={`${color}20`}
+            strokeWidth="0"
+          />
+          {/* Line */}
+          <path
+            d={pathData}
+            fill="none"
+            stroke={color}
+            strokeWidth="0.5"
+            vectorEffect="non-scaling-stroke"
+          />
+          {/* Points */}
+          {points.map((p, i) => (
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r="1"
+              fill={color}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </svg>
+      </div>
+    )
+  }
 
   return (
     <div style={{ padding: '24px 32px' }}>
@@ -146,6 +203,118 @@ export default function AdminDashboard() {
             sublabel="Last 7 days"
             color="#a855f7"
           />
+        </div>
+      )}
+
+      {/* Growth Charts */}
+      {!loading && growthData && (
+        <div style={{
+          marginTop: 32,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: 20
+        }}>
+          {/* User Growth Chart */}
+          <div style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 16,
+            padding: 24
+          }}>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: 'rgba(96,165,250,0.15)',
+                  border: '1px solid rgba(96,165,250,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Users size={20} color="#60a5fa" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0 }}>
+                    User Growth
+                  </h3>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                    Cumulative registrations over last 30 days
+                  </p>
+                </div>
+              </div>
+            </div>
+            <LineChart
+              data={growthData.user_growth}
+              dates={growthData.dates}
+              label="Users"
+              color="#60a5fa"
+              height={200}
+            />
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginTop: 16,
+              fontSize: 11,
+              color: 'rgba(255,255,255,0.4)'
+            }}>
+              <span>{growthData.dates[0]}</span>
+              <span>Total: {growthData.user_growth[growthData.user_growth.length - 1]}</span>
+              <span>{growthData.dates[growthData.dates.length - 1]}</span>
+            </div>
+          </div>
+
+          {/* Requirements Posted Chart */}
+          <div style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 16,
+            padding: 24
+          }}>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: 'rgba(139,92,246,0.15)',
+                  border: '1px solid rgba(139,92,246,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <FileText size={20} color="#8b5cf6" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0 }}>
+                    Requirements Posted
+                  </h3>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                    Daily requirement posting activity
+                  </p>
+                </div>
+              </div>
+            </div>
+            <LineChart
+              data={growthData.requirements_posted}
+              dates={growthData.dates}
+              label="Requirements"
+              color="#8b5cf6"
+              height={200}
+            />
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginTop: 16,
+              fontSize: 11,
+              color: 'rgba(255,255,255,0.4)'
+            }}>
+              <span>{growthData.dates[0]}</span>
+              <span>Total: {growthData.requirements_posted.reduce((a, b) => a + b, 0)}</span>
+              <span>{growthData.dates[growthData.dates.length - 1]}</span>
+            </div>
+          </div>
         </div>
       )}
 

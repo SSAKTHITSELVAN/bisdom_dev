@@ -179,6 +179,76 @@ async def get_admin_stats(
     }
 
 
+@router.get("/growth-data")
+async def get_growth_data(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_token),
+):
+    """
+    Get time-series data for user growth and requirement posting over time.
+    Returns daily counts for the last 30 days.
+    """
+    from sqlalchemy import func, cast, Date
+
+    # Get date 30 days ago
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+    # User growth over time (cumulative)
+    users_result = await db.execute(
+        select(
+            cast(User.created_at, Date).label('date'),
+            func.count(User.id).label('count')
+        )
+        .where(User.created_at >= thirty_days_ago)
+        .group_by(cast(User.created_at, Date))
+        .order_by(cast(User.created_at, Date))
+    )
+    user_daily_counts = users_result.all()
+
+    # Requirement posting over time (daily counts)
+    reqs_result = await db.execute(
+        select(
+            cast(Requirement.created_at, Date).label('date'),
+            func.count(Requirement.id).label('count')
+        )
+        .where(Requirement.created_at >= thirty_days_ago)
+        .group_by(cast(Requirement.created_at, Date))
+        .order_by(cast(Requirement.created_at, Date))
+    )
+    req_daily_counts = reqs_result.all()
+
+    # Build daily data structure with all 30 days (fill gaps with 0)
+    users_by_date = {row.date.isoformat(): row.count for row in user_daily_counts}
+    reqs_by_date = {row.date.isoformat(): row.count for row in req_daily_counts}
+
+    # Generate all dates for last 30 days
+    dates = []
+    user_counts = []
+    req_counts = []
+    cumulative_users = 0
+
+    for i in range(30):
+        date = (datetime.utcnow() - timedelta(days=29-i)).date()
+        date_str = date.isoformat()
+
+        # User growth (cumulative)
+        daily_users = users_by_date.get(date_str, 0)
+        cumulative_users += daily_users
+
+        # Requirement posting (daily)
+        daily_reqs = reqs_by_date.get(date_str, 0)
+
+        dates.append(date_str)
+        user_counts.append(cumulative_users)
+        req_counts.append(daily_reqs)
+
+    return {
+        "dates": dates,
+        "user_growth": user_counts,
+        "requirements_posted": req_counts,
+    }
+
+
 @router.get("/overview")
 async def admin_overview(
     db: AsyncSession = Depends(get_db),
