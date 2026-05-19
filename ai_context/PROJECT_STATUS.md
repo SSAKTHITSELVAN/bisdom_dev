@@ -19,18 +19,26 @@
 ## ✅ What's Working
 
 ### 1. Authentication & Onboarding ✅
-**Status**: Fully Functional
+**Status**: Fully Functional (Enhanced - Conversational UI)
 
 **Components**:
 - Phone-based OTP authentication
-- GST number verification
+- Conversational chat-based login (Claude-style)
+- Sign In / Sign Up flow separation
+- GSTIN verification for new signups
 - Profile creation with external link scraping
 - Role assignment (buyer/supplier)
 
 **Flow**:
 ```
-User enters phone → OTP sent → Verify OTP → Onboarding →
-Enter GSTIN → GST API validation → Profile building → Complete
+NEW CONVERSATIONAL FLOW:
+User lands on /login → AI greeting → Choose "Sign In" or "Sign Up" →
+Enter phone number in chat → OTP sent → Enter OTP in chat →
+[If Sign Up] Enter GSTIN → Navigate to /onboarding →
+[If Sign In] Navigate directly to /workspace
+
+OLD FORM FLOW (kept at /login-old):
+PhonePage → OTPPage → Onboarding
 ```
 
 **Backend**:
@@ -40,9 +48,26 @@ Enter GSTIN → GST API validation → Profile building → Complete
 - `/api/v1/onboarding/submit` ✅
 
 **Frontend**:
-- PhonePage.jsx ✅
-- OTPPage.jsx ✅
+- **ConversationalLogin.jsx** ✅ (NEW - Primary login)
+  - Chat interface with Bisdom AI
+  - Sign In/Sign Up choice buttons
+  - Progressive conversation flow
+  - Fixed bottom input bar with glass morphism
+  - 30-second OTP resend timer
+  - Professional animations (slideIn, scaleIn, pulse, float)
+  - Auth store integration for navigation
+- PhonePage.jsx ✅ (OLD - Fallback at /login-old)
+- OTPPage.jsx ✅ (OLD - Fallback)
 - OnboardingPage.jsx ✅
+
+**Recent Enhancements** (2026-05-19):
+- ✅ Fixed navigation after OTP verification (auth store integration)
+- ✅ Added Resend OTP feature with countdown timer
+- ✅ Enhanced UX with Claude-style conversational interface
+- ✅ Increased width to 900px for better readability
+- ✅ Added ambient background effects (pulsing gradients, floating particles)
+- ✅ Fixed message visibility issues
+- ✅ Prevented React StrictMode duplicate messages
 
 **Issues**: None known
 

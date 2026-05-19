@@ -6,7 +6,35 @@
 
 ## 🐛 Critical Bugs (P0)
 
-### None Currently Identified ✅
+### ~~BUG-011: Navigation Fails After OTP Verification~~ ✅ FIXED
+**Status**: ✅ Fixed (2026-05-19)  
+**Priority**: P0 (Critical)  
+**Severity**: Critical (System Unusable)
+
+**Description**:
+After successful OTP verification in conversational login, the app would restart the conversation instead of navigating to workspace. Users were stuck in an infinite login loop.
+
+**Root Cause**:
+Token was being saved to `localStorage` but NOT to zustand store. `ProtectedRoute` reads from zustand (`useAuthStore`), so it never saw the token and kept redirecting back to `/login`.
+
+**Fix Applied**:
+```javascript
+// Before (BROKEN)
+localStorage.setItem('token', response.data.access_token)
+navigate('/workspace', { replace: true })  // ProtectedRoute redirects back
+
+// After (WORKING)
+setAuth(token, null, isOnboarded)  // Update zustand store
+localStorage.setItem('token', token)
+navigate('/workspace', { replace: true })  // Now works!
+```
+
+**Files Changed**:
+- `ui/src/components/auth/ConversationalLogin.jsx`
+
+**Fixed In**: Commit d914111  
+**Fixed By**: Claude + Sakthi  
+**Date**: 2026-05-19
 
 ---
 

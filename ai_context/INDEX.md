@@ -15,6 +15,7 @@
 | [BUGS.md](BUGS.md) | Known issues & fixes | 🐛 Issues | ⭐⭐ Important |
 | [TASKS.md](TASKS.md) | To-do list & roadmap | ✅ Tasks | ⭐⭐ Important |
 | [TECH_STACK.md](TECH_STACK.md) | Technologies used | 💻 Tech | ⭐ Reference |
+| [CONVERSATIONAL_LOGIN.md](CONVERSATIONAL_LOGIN.md) | Login UI implementation | 💬 Feature | ⭐⭐ Reference |
 
 ---
 
@@ -51,12 +52,12 @@
 
 ## 📊 Current Stats
 
-**Project Health**: 🟢 Good (7.3/10)
-**Features Complete**: 80%
+**Project Health**: 🟢 Good (7.5/10)
+**Features Complete**: 85%
 **Tests Coverage**: 0% ❌
 **Production Ready**: No ⚠️
 
-**Bugs**: 11 tracked (2 P1, 4 P2, 2 P3, 3 unconfirmed)
+**Bugs**: 11 tracked (1 P0 fixed, 2 P1, 4 P2, 2 P3, 3 unconfirmed)
 **Tasks**: 24 identified (1 in progress, 23 pending)
 
 ---
@@ -78,19 +79,24 @@
 
 ## 🔥 Hot Topics (This Week)
 
-1. 🔄 **End-to-end testing** - In progress
-2. 🔴 **Admin security** - High priority
-3. 🔴 **CORS policy** - High priority
-4. 🟡 **Rate limiting** - Medium priority
-5. 🟡 **Matching service bugs** - Medium priority
+1. ✅ **Conversational Login Fixed** - Navigation & Resend OTP working (2026-05-19)
+2. 🔄 **End-to-end testing** - In progress
+3. 🔴 **Admin security** - High priority
+4. 🔴 **CORS policy** - High priority
+5. 🟡 **Rate limiting** - Medium priority
 
 ---
 
 ## 📝 Last Updated
 
 - **Date**: 2026-05-19
-- **By**: AI Assistant
-- **Changes**: Added DEPLOYMENT.md with AWS EC2 deployment guide
+- **By**: Claude + Sakthi
+- **Changes**: 
+  - Fixed critical navigation bug in conversational login
+  - Added Resend OTP feature with 30s countdown
+  - Created CONVERSATIONAL_LOGIN.md documentation
+  - Updated BUGS.md with fix details
+  - Updated PROJECT_STATUS.md with enhanced auth section
 
 ---
 
