@@ -9,11 +9,13 @@ import { Bot, User, ArrowRight } from 'lucide-react'
 export default function ConversationalLogin() {
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState('')
-  const [currentStep, setCurrentStep] = useState('welcome') // welcome, phone, otp, done
+  const [currentStep, setCurrentStep] = useState('choose') // choose, welcome, phone, otp, gstin, done
+  const [authType, setAuthType] = useState(null) // 'signin' or 'signup'
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [initialized, setInitialized] = useState(false)
+  const [showChoiceButtons, setShowChoiceButtons] = useState(true)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const navigate = useNavigate()
@@ -31,12 +33,11 @@ export default function ConversationalLogin() {
     if (initialized) return
     setInitialized(true)
 
-    // Initial welcome sequence with staggered delays
+    // Initial welcome - ask to choose
     const timeouts = [
       setTimeout(() => addBotMessage("👋 Welcome to Bisdom!"), 500),
-      setTimeout(() => addBotMessage("I'm your AI assistant, here to help you connect with verified suppliers across India."), 1600),
-      setTimeout(() => addBotMessage("Let's get you started! What's your mobile number?"), 3000),
-      setTimeout(() => addBotMessage("(Enter 10 digits, starting with 6-9)"), 4000)
+      setTimeout(() => addBotMessage("I'm your AI assistant, here to help you connect with verified B2B suppliers across India."), 1600),
+      setTimeout(() => addBotMessage("Are you here to sign in or sign up?"), 3200)
     ]
 
     return () => timeouts.forEach(t => clearTimeout(t))
@@ -54,6 +55,25 @@ export default function ConversationalLogin() {
     setMessages(prev => [...prev, { type: 'user', text, timestamp: new Date() }])
   }
 
+  const handleChoice = (choice) => {
+    setAuthType(choice)
+    setShowChoiceButtons(false)
+    addUserMessage(choice === 'signin' ? 'Sign In' : 'Sign Up')
+
+    setTimeout(() => {
+      if (choice === 'signin') {
+        addBotMessage("Great! Let's sign you in.")
+      } else {
+        addBotMessage("Excellent! Let's create your account.")
+      }
+    }, 300)
+
+    setTimeout(() => addBotMessage("What's your mobile number?"), 1200)
+    setTimeout(() => addBotMessage("(Enter 10 digits, starting with 6-9)"), 2000)
+
+    setCurrentStep('phone')
+  }
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || loading) return
 
@@ -62,7 +82,7 @@ export default function ConversationalLogin() {
     setInputValue('')
     setLoading(true)
 
-    if (currentStep === 'welcome') {
+    if (currentStep === 'phone') {
       // Validate phone number
       const phoneDigits = value.replace(/\D/g, '')
       if (phoneDigits.length !== 10 || !phoneDigits.match(/^[6-9]\d{9}$/)) {
@@ -102,22 +122,45 @@ export default function ConversationalLogin() {
         const response = await verifyOTP(phone, otpDigits)
         localStorage.setItem('token', response.data.access_token)
 
-        addBotMessage("🎉 Verified! Welcome to Bisdom!")
-        addBotMessage("Let me take you to your workspace...")
+        addBotMessage("🎉 Verified!")
 
-        setTimeout(() => {
-          if (response.data.is_onboarded) {
+        // For Sign Up - ask for GSTIN
+        if (authType === 'signup' && !response.data.is_onboarded) {
+          setTimeout(() => addBotMessage("Now, let's verify your business."), 1000)
+          setTimeout(() => addBotMessage("What's your company's GSTIN?"), 1800)
+          setTimeout(() => addBotMessage("(15-character GST identification number)"), 2600)
+          setCurrentStep('gstin')
+          setLoading(false)
+        } else {
+          // For Sign In - go directly to workspace
+          addBotMessage("Welcome back to Bisdom!")
+          setTimeout(() => {
             navigate('/workspace')
-          } else {
-            navigate('/onboarding')
-          }
-        }, 2000)
+          }, 1500)
+        }
       } catch (err) {
         setLoading(false)
         const errorMsg = err.response?.data?.detail || "OTP verification failed"
         addBotMessage(`❌ ${errorMsg}`)
         addBotMessage("Please check the OTP and try again.")
       }
+    } else if (currentStep === 'gstin') {
+      // Validate GSTIN (15 characters, alphanumeric)
+      const gstinValue = value.toUpperCase()
+      if (gstinValue.length !== 15 || !/^[0-9A-Z]{15}$/.test(gstinValue)) {
+        setLoading(false)
+        addBotMessage("🤔 That doesn't look like a valid GSTIN.")
+        setTimeout(() => addBotMessage("Please enter a valid 15-character GST identification number."), 800)
+        return
+      }
+
+      // Store GSTIN and proceed to onboarding
+      addBotMessage("✅ Perfect! GSTIN verified.")
+      addBotMessage("Let me set up your workspace...")
+
+      setTimeout(() => {
+        navigate('/onboarding', { state: { gstin: gstinValue } })
+      }, 2000)
     }
   }
 
@@ -229,15 +272,19 @@ export default function ConversationalLogin() {
         flex: 1,
         overflowY: 'auto',
         overflowX: 'hidden',
-        padding: '40px 24px 120px',
+        padding: '40px 24px 180px',
         position: 'relative',
-        zIndex: 1
+        zIndex: 1,
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         <div style={{
           maxWidth: '900px',
           margin: '0 auto',
           width: '100%',
-          paddingBottom: '40px'
+          minHeight: '100%',
+          display: 'flex',
+          flexDirection: 'column'
         }}>
           {messages.map((msg, idx) => (
             <div
@@ -390,6 +437,76 @@ export default function ConversationalLogin() {
             </div>
           )}
 
+          {/* Choice Buttons */}
+          {showChoiceButtons && currentStep === 'choose' && messages.length >= 3 && (
+            <div style={{
+              display: 'flex',
+              gap: 16,
+              justifyContent: 'center',
+              marginTop: 32,
+              animation: 'slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+              animationDelay: '0.3s',
+              opacity: 0,
+              animationFillMode: 'forwards'
+            }}>
+              <button
+                onClick={() => handleChoice('signin')}
+                style={{
+                  padding: '16px 32px',
+                  borderRadius: 16,
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '2px solid rgba(255,255,255,0.2)',
+                  color: '#fff',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
+                }}
+              >
+                🔑 Sign In
+              </button>
+
+              <button
+                onClick={() => handleChoice('signup')}
+                style={{
+                  padding: '16px 32px',
+                  borderRadius: 16,
+                  background: 'linear-gradient(135deg, #054E94 0%, #1A8FFF 100%)',
+                  border: '2px solid rgba(255,255,255,0.2)',
+                  color: '#fff',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 6px 20px rgba(96,165,250,0.4)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)'
+                  e.currentTarget.style.boxShadow = '0 8px 28px rgba(96,165,250,0.5)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(96,165,250,0.4)'
+                }}
+              >
+                ✨ Sign Up
+              </button>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -426,10 +543,14 @@ export default function ConversationalLogin() {
               placeholder={
                 currentStep === 'otp'
                   ? "Enter 6-digit OTP..."
-                  : "Type your mobile number..."
+                  : currentStep === 'gstin'
+                  ? "Enter 15-character GSTIN..."
+                  : currentStep === 'phone'
+                  ? "Type your mobile number..."
+                  : "Type here..."
               }
-              disabled={loading}
-              maxLength={currentStep === 'otp' ? 6 : 10}
+              disabled={loading || currentStep === 'choose'}
+              maxLength={currentStep === 'otp' ? 6 : currentStep === 'gstin' ? 15 : 10}
               inputMode={currentStep === 'otp' ? 'numeric' : 'tel'}
               autoFocus
               style={{
