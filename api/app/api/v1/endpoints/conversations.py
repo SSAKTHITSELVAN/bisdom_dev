@@ -683,9 +683,6 @@ async def _run_autonomous_negotiation_round(lead_id: int):
                     if lead.ai_paused_for_buyer:
                         logger.info(f"[AUTO] Lead #{lead_id}: buyer escalated, stopping")
                         return
-                    if lead.status in ("deal_closed", "offer_ready"):
-                        logger.info(f"[AUTO] Lead #{lead_id}: status={lead.status}, stopping")
-                        return
 
                     # Check if buyer is walking away
                     buyer_content = buyer_msg.content or ""
@@ -695,6 +692,22 @@ async def _run_autonomous_negotiation_round(lead_id: int):
                         await db.commit()
                         logger.info(f"[AUTO] Lead #{lead_id}: buyer walked away, stopping")
                         return
+
+                    # If buyer accepted the deal (offer_ready), let supplier send final confirmation
+                    if lead.status == "offer_ready":
+                        logger.info(f"[AUTO] Lead #{lead_id}: buyer accepted, triggering supplier's final confirmation")
+                        # Trigger supplier's final confirmation message
+                        supplier_msg = await _trigger_supplier_ai_response(
+                            conversation, lead, buyer_content, db
+                        )
+                        await db.commit()
+                        logger.info(f"[AUTO] Lead #{lead_id}: supplier confirmed, stopping")
+                        return
+
+                    if lead.status == "deal_closed":
+                        logger.info(f"[AUTO] Lead #{lead_id}: status=deal_closed, stopping")
+                        return
+
                     # Continue — supplier will respond next iteration
 
                 else:
