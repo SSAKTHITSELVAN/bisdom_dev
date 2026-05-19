@@ -372,9 +372,11 @@ async def rematch_requirement(
     """
     Manually re-run matching for a requirement.
     Use this for requirements that were never matched or need rematching.
+    Returns debug info about why matches were or weren't created.
     """
     from app.models.requirement import Requirement
     from app.services.matching_service import match_requirement_to_suppliers
+    from app.models.user_config import UserConfig
 
     try:
         req_result = await db.execute(
@@ -383,6 +385,30 @@ async def rematch_requirement(
         req = req_result.scalar_one_or_none()
         if not req:
             return {"error": f"Requirement #{requirement_id} not found"}
+
+        # Get candidate profiles BEFORE matching to debug
+        candidate_profiles_result = await db.execute(
+            select(AgenticProfile).where(
+                AgenticProfile.user_id != req.buyer_id,
+            )
+        )
+        candidate_profiles = candidate_profiles_result.scalars().all()
+
+        # Check profile_md for each candidate
+        debug_info = []
+        for profile in candidate_profiles[:5]:  # Check first 5
+            config_result = await db.execute(
+                select(UserConfig).where(UserConfig.user_id == profile.user_id)
+            )
+            user_config = config_result.scalar_one_or_none()
+            profile_md_length = len(user_config.profile_md) if user_config and user_config.profile_md else 0
+            debug_info.append({
+                "user_id": profile.user_id,
+                "trade_name": profile.trade_name,
+                "profile_md_length": profile_md_length,
+                "categories": profile.product_categories,
+                "location": f"{profile.city}, {profile.state}" if profile.city else None
+            })
 
         # Run matching
         logger.info(f"[ADMIN] Manually triggering match for requirement #{requirement_id}")
@@ -406,9 +432,13 @@ async def rematch_requirement(
             "success": True,
             "requirement_id": requirement_id,
             "product": req.product,
+            "buyer_id": req.buyer_id,
+            "delivery_location": req.delivery_location,
+            "candidates_found": len(candidate_profiles),
             "leads_created": len(leads),
             "conversations_initiated": len(initiated),
             "lead_ids": [l.id for l in leads],
+            "debug_sample_profiles": debug_info,
         }
     except Exception as e:
         logger.error(f"[ADMIN] Error in rematch: {e}", exc_info=True)
