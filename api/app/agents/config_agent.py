@@ -27,83 +27,148 @@ def build_profile_md(gst_data: dict, url_profile: dict) -> str:
     catalog = url_profile.get("products") or []
 
     lines = [
-        f"# Business Profile — {name}",
+        f"# Business Profile",
+        f"## {name}",
         "",
-        "## Company Details",
-        f"- **Trade Name:** {name}",
-        f"- **Legal Name:** {legal}",
-        f"- **GSTIN:** {gstin} ({status})",
-        f"- **Business Type:** {btype}",
-        f"- **GST Registered:** {reg_date}",
-        f"- **Location:** {city}, {state}",
-        f"- **Address:** {addr}",
-        f"- **Nature of Business:** {', '.join(nba)}",
+        "---",
+        "",
+        "## 🏢 Company Details",
+        "",
+        f"**Trade Name:** {name}",
+        "",
+        f"**Legal Name:** {legal}",
+        "",
+        f"**GSTIN:** `{gstin}` ({status})",
+        "",
+        f"**Business Type:** {btype}",
+        "",
+        f"**GST Registered:** {reg_date}",
+        "",
+        "---",
+        "",
+        "## 📍 Location",
+        "",
+        f"**City, State:** {city}, {state}",
+        "",
+        f"**Address:**",
+        f"> {addr}",
+        "",
+        f"**Nature of Business:** {', '.join(nba)}",
         "",
     ]
 
     if summary:
-        lines += ["## About", summary, ""]
+        lines += [
+            "---",
+            "",
+            "## 📖 About",
+            "",
+            summary,
+            "",
+        ]
 
     if cats:
-        lines += ["## Product Categories", ""]
+        lines += [
+            "---",
+            "",
+            "## 🏷️ Product Categories",
+            "",
+        ]
         for c in cats:
             lines.append(f"- {c}")
         lines.append("")
 
     if catalog:
-        lines += ["## Products & Specifications", ""]
-        for p in catalog:
+        lines += [
+            "---",
+            "",
+            "## 📦 Products & Specifications",
+            "",
+        ]
+        for idx, p in enumerate(catalog, 1):
             pname = p.get("product_name") or p.get("name", "Product")
             specs = p.get("specifications") or {}
             commercials = p.get("commercials") or {}
-            lines.append(f"### {pname}")
-            cat = p.get("category", "")
-            if cat:
-                lines.append(f"- Category: {cat}")
-            gender = p.get("target_gender", "")
-            if gender:
-                lines.append(f"- Target: {gender}")
-            fabric = specs.get("fabric", {})
-            if fabric.get("type"):
-                fabric_line = f"- Fabric: {fabric['type']}"
-                if fabric.get("composition"):
-                    fabric_line += f" ({fabric['composition']})"
-                if fabric.get("treatment"):
-                    fabric_line += f" — {fabric['treatment']}"
-                lines.append(fabric_line)
-            gsm_val = specs.get("gsm", {}).get("value")
-            if gsm_val:
-                bucket = specs.get("gsm", {}).get("bucket", "")
-                lines.append(f"- GSM: {gsm_val}" + (f" [{bucket}]" if bucket and bucket != "unknown" else ""))
-            fit = specs.get("fit", "")
-            if fit:
-                lines.append(f"- Fit: {fit}")
-            neck = specs.get("neck_type", "")
-            if neck:
-                lines.append(f"- Neck: {neck}")
-            sleeve = specs.get("sleeve_type", "")
-            if sleeve:
-                lines.append(f"- Sleeve: {sleeve}")
-            colors = specs.get("color", [])
-            if colors:
-                lines.append(f"- Colors: {', '.join(colors[:8])}")
-            price_val = commercials.get("price", {}).get("value")
-            if price_val:
-                bucket = commercials.get("price", {}).get("bucket", "")
-                lines.append(f"- Price: INR {price_val}/piece" + (f" [{bucket}]" if bucket and bucket != "unknown" else ""))
-            moq_val = commercials.get("moq", {}).get("value")
-            if moq_val:
-                lines.append(f"- MOQ: {moq_val} pieces")
-            sizes = p.get("sizes", {}).get("available", [])
-            if sizes:
-                lines.append(f"- Sizes: {', '.join(sizes)}")
-            methods = p.get("printing_capabilities", {}).get("supported_methods", [])
-            if methods:
-                lines.append(f"- Printing: {', '.join(methods)}")
-            use_cases = p.get("use_cases", [])
-            if use_cases:
-                lines.append(f"- Use Cases: {', '.join(use_cases)}")
+
+            # Product header with number
+            lines.append(f"### {idx}. {pname}")
             lines.append("")
+
+            # Basic info
+            cat = p.get("category", "")
+            gender = p.get("target_gender", "")
+            if cat or gender:
+                lines.append("**Product Type:**")
+                if cat:
+                    lines.append(f"  - Category: {cat}")
+                if gender:
+                    lines.append(f"  - Target: {gender}")
+                lines.append("")
+
+            # Fabric & quality
+            fabric = specs.get("fabric", {})
+            gsm_val = specs.get("gsm", {}).get("value")
+            fit = specs.get("fit", "")
+            if fabric.get("type") or gsm_val or fit:
+                lines.append("**Fabric & Quality:**")
+                if fabric.get("type"):
+                    fabric_line = f"  - Fabric: {fabric['type']}"
+                    if fabric.get("composition"):
+                        fabric_line += f" ({fabric['composition']})"
+                    lines.append(fabric_line)
+                if fabric.get("treatment"):
+                    lines.append(f"  - Treatment: {fabric['treatment']}")
+                if gsm_val:
+                    bucket = specs.get("gsm", {}).get("bucket", "")
+                    lines.append(f"  - GSM: {gsm_val}" + (f" [{bucket} quality]" if bucket and bucket != "unknown" else ""))
+                if fit:
+                    lines.append(f"  - Fit: {fit}")
+                lines.append("")
+
+            # Style details
+            neck = specs.get("neck_type", "")
+            sleeve = specs.get("sleeve_type", "")
+            colors = specs.get("color", [])
+            sizes = p.get("sizes", {}).get("available", [])
+            if neck or sleeve or colors or sizes:
+                lines.append("**Style & Options:**")
+                if neck:
+                    lines.append(f"  - Neck: {neck}")
+                if sleeve:
+                    lines.append(f"  - Sleeve: {sleeve}")
+                if colors:
+                    lines.append(f"  - Colors: {', '.join(colors[:8])}")
+                if sizes:
+                    lines.append(f"  - Sizes: {', '.join(sizes)}")
+                lines.append("")
+
+            # Pricing
+            price_val = commercials.get("price", {}).get("value")
+            moq_val = commercials.get("moq", {}).get("value")
+            if price_val or moq_val:
+                lines.append("**Pricing:**")
+                if price_val:
+                    bucket = commercials.get("price", {}).get("bucket", "")
+                    lines.append(f"  - Price: INR {price_val}/piece" + (f" [{bucket}]" if bucket and bucket != "unknown" else ""))
+                if moq_val:
+                    lines.append(f"  - MOQ: {moq_val} pieces")
+                lines.append("")
+
+            # Customization
+            methods = p.get("printing_capabilities", {}).get("supported_methods", [])
+            use_cases = p.get("use_cases", [])
+            if methods or use_cases:
+                lines.append("**Customization & Usage:**")
+                if methods:
+                    lines.append(f"  - Printing: {', '.join(methods)}")
+                if use_cases:
+                    lines.append(f"  - Use Cases: {', '.join(use_cases)}")
+                lines.append("")
+
+            # Separator between products (except last one)
+            if idx < len(catalog):
+                lines.append("---")
+                lines.append("")
     else:
         prods = caps.get("products") or []
         if prods:
@@ -126,22 +191,44 @@ def build_profile_md(gst_data: dict, url_profile: dict) -> str:
     if caps and isinstance(caps, dict):
         active_caps = [k.replace("_", " ").title() for k, v in caps.items() if v]
         if active_caps:
-            lines += ["## Capabilities", ""]
+            lines += [
+                "---",
+                "",
+                "## ⚙️ Capabilities",
+                "",
+            ]
             for c in active_caps:
                 lines.append(f"- {c}")
             lines.append("")
 
     if locs:
-        lines += ["## Serviceable Locations", ", ".join(locs), ""]
+        lines += [
+            "---",
+            "",
+            "## 🌍 Serviceable Locations",
+            "",
+            ", ".join(locs),
+            "",
+        ]
 
     if certs:
-        lines += ["## Certifications", ""]
+        lines += [
+            "---",
+            "",
+            "## ✅ Certifications",
+            "",
+        ]
         for c in certs:
             lines.append(f"- {c}")
         lines.append("")
 
     if pay:
-        lines += ["## Payment Terms", ""]
+        lines += [
+            "---",
+            "",
+            "## 💳 Payment Terms",
+            "",
+        ]
         for p in pay:
             lines.append(f"- {p}")
         lines.append("")
