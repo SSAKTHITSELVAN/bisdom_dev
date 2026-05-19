@@ -1,6 +1,7 @@
 """
 Matching Service — matches confirmed buyer requirements against supplier profiles.
 Creates Lead records for each match, then initiates agent conversations.
+Uses TF-IDF text similarity for better matching.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -8,12 +9,14 @@ from typing import List
 from app.models.profile import AgenticProfile
 from app.models.requirement import Requirement
 from app.models.lead import Lead
+from app.models.user_config import UserConfig
+from app.services.text_matching import calculate_enhanced_match_score
 import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
 
-MINIMUM_FIT_SCORE = 30.0  # Lowered to ensure more matches
+MINIMUM_FIT_SCORE = 25.0  # Lowered to ensure more matches (TF-IDF based)
 
 
 async def match_requirement_to_suppliers(
@@ -67,7 +70,38 @@ async def _create_lead(
     db: AsyncSession,
 ) -> Lead | None:
     try:
-        fit_score = _calculate_basic_fit(requirement_dict, supplier_profile)
+        # Get supplier's profile markdown from UserConfig
+        profile_md = ""
+        config_result = await db.execute(
+            select(UserConfig).where(UserConfig.user_id == supplier_profile.user_id)
+        )
+        user_config = config_result.scalar_one_or_none()
+        if user_config and user_config.profile_md:
+            profile_md = user_config.profile_md
+
+        # Build location string
+        location = None
+        if supplier_profile.city and supplier_profile.state:
+            location = f"{supplier_profile.city}, {supplier_profile.state}"
+        elif supplier_profile.state:
+            location = supplier_profile.state
+        elif supplier_profile.city:
+            location = supplier_profile.city
+
+        # Calculate enhanced fit score using TF-IDF
+        fit_score, match_reasons = calculate_enhanced_match_score(
+            requirement=requirement_dict,
+            profile_md=profile_md,
+            location=location,
+            categories=supplier_profile.product_categories,
+            pricing_available=bool(supplier_profile.pricing_bands)
+        )
+
+        # Skip if score too low
+        if fit_score < MINIMUM_FIT_SCORE:
+            logger.info(f"[MATCH] Skipping supplier #{supplier_profile.user_id}: "
+                       f"score {fit_score:.0f}% below threshold {MINIMUM_FIT_SCORE}%")
+            return None
 
         # Check if lead already exists
         existing = await db.execute(
@@ -79,12 +113,6 @@ async def _create_lead(
         if existing.scalar_one_or_none():
             logger.info(f"[MATCH] Lead already exists for supplier #{supplier_profile.user_id}")
             return None
-
-        match_reasons = [f"Fit score: {fit_score:.0f}%"]
-        if supplier_profile.product_categories:
-            match_reasons.append(f"Products: {', '.join(supplier_profile.product_categories[:2])}")
-        if supplier_profile.state:
-            match_reasons.append(f"Location: {supplier_profile.state}")
 
         lead = Lead(
             requirement_id=requirement.id,
