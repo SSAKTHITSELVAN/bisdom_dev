@@ -13,6 +13,7 @@ export default function ConversationalLogin() {
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
+  const [initialized, setInitialized] = useState(false)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const navigate = useNavigate()
@@ -26,11 +27,19 @@ export default function ConversationalLogin() {
   }, [messages, isTyping])
 
   useEffect(() => {
-    // Initial welcome message
-    setTimeout(() => addBotMessage("👋 Welcome to Bisdom!"), 300)
-    setTimeout(() => addBotMessage("I'm your AI assistant, here to help you connect with verified suppliers across India."), 1200)
-    setTimeout(() => addBotMessage("Let's get you started! What's your mobile number?"), 2400)
-    setTimeout(() => addBotMessage("(Enter 10 digits, starting with 6-9)"), 3200)
+    // Prevent duplicate initialization in React StrictMode
+    if (initialized) return
+    setInitialized(true)
+
+    // Initial welcome sequence with staggered delays
+    const timeouts = [
+      setTimeout(() => addBotMessage("👋 Welcome to Bisdom!"), 500),
+      setTimeout(() => addBotMessage("I'm your AI assistant, here to help you connect with verified suppliers across India."), 1600),
+      setTimeout(() => addBotMessage("Let's get you started! What's your mobile number?"), 3000),
+      setTimeout(() => addBotMessage("(Enter 10 digits, starting with 6-9)"), 4000)
+    ]
+
+    return () => timeouts.forEach(t => clearTimeout(t))
   }, [])
 
   const addBotMessage = (text) => {
@@ -128,15 +137,16 @@ export default function ConversationalLogin() {
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Background effects */}
+      {/* Animated Background Effects */}
       <div style={{
         position: 'absolute',
         top: '-50%',
         right: '-20%',
         width: '60%',
         height: '100%',
-        background: 'radial-gradient(circle, rgba(96,165,250,0.1) 0%, transparent 70%)',
-        pointerEvents: 'none'
+        background: 'radial-gradient(circle, rgba(96,165,250,0.15) 0%, transparent 70%)',
+        pointerEvents: 'none',
+        animation: 'pulse 8s ease-in-out infinite'
       }} />
       <div style={{
         position: 'absolute',
@@ -144,8 +154,41 @@ export default function ConversationalLogin() {
         left: '-10%',
         width: '50%',
         height: '80%',
-        background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)',
-        pointerEvents: 'none'
+        background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)',
+        pointerEvents: 'none',
+        animation: 'pulse 10s ease-in-out infinite reverse'
+      }} />
+
+      {/* Floating particles */}
+      <div style={{
+        position: 'absolute',
+        top: '20%',
+        left: '10%',
+        width: '4px',
+        height: '4px',
+        borderRadius: '50%',
+        background: 'rgba(96,165,250,0.3)',
+        animation: 'float 6s ease-in-out infinite'
+      }} />
+      <div style={{
+        position: 'absolute',
+        top: '60%',
+        right: '15%',
+        width: '6px',
+        height: '6px',
+        borderRadius: '50%',
+        background: 'rgba(139,92,246,0.3)',
+        animation: 'float 8s ease-in-out infinite 2s'
+      }} />
+      <div style={{
+        position: 'absolute',
+        bottom: '30%',
+        left: '20%',
+        width: '5px',
+        height: '5px',
+        borderRadius: '50%',
+        background: 'rgba(96,165,250,0.25)',
+        animation: 'float 7s ease-in-out infinite 1s'
       }} />
 
       {/* Header */}
@@ -185,53 +228,76 @@ export default function ConversationalLogin() {
       <div style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '32px 24px',
+        overflowX: 'hidden',
+        padding: '40px 24px 120px',
         position: 'relative',
         zIndex: 1
       }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{
+          maxWidth: '900px',
+          margin: '0 auto',
+          width: '100%',
+          paddingBottom: '40px'
+        }}>
           {messages.map((msg, idx) => (
             <div
               key={idx}
               style={{
                 display: 'flex',
                 gap: 16,
-                marginBottom: 24,
+                marginBottom: 28,
                 alignItems: 'flex-start',
-                animation: 'slideIn 0.3s ease-out'
+                animation: 'slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                opacity: 0,
+                animationFillMode: 'forwards',
+                animationDelay: '0.1s'
               }}
             >
               {msg.type === 'bot' ? (
                 <>
                   {/* Bot Avatar */}
                   <div style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: 'linear-gradient(135deg, #054E94, #1A8FFF)',
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: 'linear-gradient(135deg, #054E94 0%, #1A8FFF 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    boxShadow: '0 4px 12px rgba(96,165,250,0.3)'
+                    boxShadow: '0 6px 20px rgba(96,165,250,0.4)',
+                    border: '2px solid rgba(255,255,255,0.1)',
+                    transition: 'transform 0.3s ease',
+                    animation: 'scaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}>
-                    <Bot size={22} color="white" />
+                    <Bot size={24} color="white" strokeWidth={2.5} />
                   </div>
 
                   {/* Bot Message */}
                   <div style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '16px 16px 16px 4px',
-                    padding: '16px 20px',
-                    maxWidth: '85%',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: '20px 20px 20px 6px',
+                    padding: idx === 0 ? '20px 24px' : '18px 22px',
+                    maxWidth: '75%',
                     color: '#fff',
-                    fontSize: idx === 0 ? 17 : 15, // Larger font for first message
+                    fontSize: idx === 0 ? 18 : 16,
                     fontWeight: idx === 0 ? 600 : 400,
                     lineHeight: 1.7,
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}>
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    cursor: 'default'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)'
+                  }}
+                  >
                     {msg.text}
                   </div>
                 </>
@@ -241,33 +307,47 @@ export default function ConversationalLogin() {
 
                   {/* User Message */}
                   <div style={{
-                    background: 'linear-gradient(135deg, #054E94, #1A8FFF)',
-                    borderRadius: '16px 16px 4px 16px',
-                    padding: '16px 20px',
-                    maxWidth: '85%',
+                    background: 'linear-gradient(135deg, #054E94 0%, #1A8FFF 100%)',
+                    borderRadius: '20px 20px 6px 20px',
+                    padding: '18px 22px',
+                    maxWidth: '70%',
                     color: '#fff',
                     fontSize: 16,
                     fontWeight: 500,
                     lineHeight: 1.6,
                     letterSpacing: '0.3px',
-                    boxShadow: '0 4px 12px rgba(96,165,250,0.3)'
-                  }}>
+                    boxShadow: '0 6px 20px rgba(96,165,250,0.4)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    cursor: 'default'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(96,165,250,0.5)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(96,165,250,0.4)'
+                  }}
+                  >
                     {msg.text}
                   </div>
 
                   {/* User Avatar */}
                   <div style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.2)',
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '2px solid rgba(255,255,255,0.15)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    animation: 'scaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}>
-                    <User size={22} color="rgba(255,255,255,0.6)" />
+                    <User size={24} color="rgba(255,255,255,0.7)" strokeWidth={2.5} />
                   </div>
                 </>
               )}
@@ -314,17 +394,21 @@ export default function ConversationalLogin() {
         </div>
       </div>
 
-      {/* Input Area */}
+      {/* Input Area - Fixed at Bottom */}
       <div style={{
-        padding: '16px 24px 24px',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
-        background: 'rgba(13,31,60,0.6)',
-        backdropFilter: 'blur(20px)',
-        position: 'relative',
-        zIndex: 10
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: '20px 24px 28px',
+        borderTop: '1px solid rgba(255,255,255,0.1)',
+        background: 'rgba(10,22,40,0.95)',
+        backdropFilter: 'blur(30px)',
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.3)',
+        zIndex: 100
       }}>
         <div style={{
-          maxWidth: '800px',
+          maxWidth: '900px',
           margin: '0 auto',
           position: 'relative'
         }}>
@@ -347,25 +431,31 @@ export default function ConversationalLogin() {
               disabled={loading}
               maxLength={currentStep === 'otp' ? 6 : 10}
               inputMode={currentStep === 'otp' ? 'numeric' : 'tel'}
+              autoFocus
               style={{
                 flex: 1,
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 12,
-                padding: '14px 18px',
-                fontSize: 15,
+                background: 'rgba(255,255,255,0.06)',
+                border: '2px solid rgba(255,255,255,0.12)',
+                borderRadius: 16,
+                padding: '16px 20px',
+                fontSize: 16,
                 color: '#fff',
                 outline: 'none',
-                transition: 'all 0.2s',
-                fontFamily: 'inherit'
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                fontFamily: 'inherit',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
               }}
               onFocus={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.08)'
-                e.target.style.borderColor = 'rgba(96,165,250,0.4)'
+                e.target.style.background = 'rgba(255,255,255,0.09)'
+                e.target.style.borderColor = 'rgba(96,165,250,0.5)'
+                e.target.style.boxShadow = '0 6px 20px rgba(96,165,250,0.2)'
+                e.target.style.transform = 'translateY(-1px)'
               }}
               onBlur={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.05)'
-                e.target.style.borderColor = 'rgba(255,255,255,0.15)'
+                e.target.style.background = 'rgba(255,255,255,0.06)'
+                e.target.style.borderColor = 'rgba(255,255,255,0.12)'
+                e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
+                e.target.style.transform = 'translateY(0)'
               }}
             />
 
@@ -373,36 +463,53 @@ export default function ConversationalLogin() {
               onClick={handleSendMessage}
               disabled={loading || !inputValue.trim()}
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
+                width: 56,
+                height: 56,
+                borderRadius: 16,
                 background: loading || !inputValue.trim()
-                  ? 'rgba(255,255,255,0.1)'
-                  : 'linear-gradient(135deg, #054E94, #1A8FFF)',
-                border: 'none',
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'linear-gradient(135deg, #054E94 0%, #1A8FFF 100%)',
+                border: loading || !inputValue.trim()
+                  ? '2px solid rgba(255,255,255,0.1)'
+                  : '2px solid rgba(255,255,255,0.15)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: loading || !inputValue.trim() ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 flexShrink: 0,
-                opacity: loading || !inputValue.trim() ? 0.5 : 1
+                opacity: loading || !inputValue.trim() ? 0.4 : 1,
+                boxShadow: loading || !inputValue.trim()
+                  ? 'none'
+                  : '0 6px 20px rgba(96,165,250,0.3)'
               }}
               onMouseEnter={(e) => {
                 if (!loading && inputValue.trim()) {
-                  e.currentTarget.style.transform = 'scale(1.05)'
-                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(96,165,250,0.4)'
+                  e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 8px 28px rgba(96,165,250,0.5)'
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)'
-                e.currentTarget.style.boxShadow = 'none'
+                if (!loading && inputValue.trim()) {
+                  e.currentTarget.style.transform = 'scale(1) translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(96,165,250,0.3)'
+                }
+              }}
+              onMouseDown={(e) => {
+                if (!loading && inputValue.trim()) {
+                  e.currentTarget.style.transform = 'scale(0.95) translateY(0)'
+                }
+              }}
+              onMouseUp={(e) => {
+                if (!loading && inputValue.trim()) {
+                  e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)'
+                }
               }}
             >
               {loading ? (
-                <Spinner size={20} color="white" />
+                <Spinner size={24} color="white" />
               ) : (
-                <ArrowRight size={22} color="white" />
+                <ArrowRight size={26} color="white" strokeWidth={2.5} />
               )}
             </button>
           </div>
@@ -422,7 +529,7 @@ export default function ConversationalLogin() {
         @keyframes slideIn {
           from {
             opacity: 0;
-            transform: translateY(10px);
+            transform: translateY(20px);
           }
           to {
             opacity: 1;
@@ -430,12 +537,45 @@ export default function ConversationalLogin() {
           }
         }
 
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 0.6;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.05);
+          }
+        }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0) translateX(0);
+            opacity: 0.3;
+          }
+          50% {
+            transform: translateY(-20px) translateX(10px);
+            opacity: 0.6;
+          }
+        }
+
         .typing-dot {
-          width: 8px;
-          height: 8px;
+          width: 9px;
+          height: 9px;
           border-radius: 50%;
-          background: rgba(255,255,255,0.4);
-          animation: typing 1.4s infinite;
+          background: rgba(255,255,255,0.5);
+          animation: typing 1.4s ease-in-out infinite;
         }
 
         @keyframes typing {
@@ -445,12 +585,30 @@ export default function ConversationalLogin() {
           }
           30% {
             opacity: 1;
-            transform: scale(1.2);
+            transform: scale(1.3);
           }
         }
 
         input::placeholder {
-          color: rgba(255,255,255,0.4);
+          color: rgba(255,255,255,0.45);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.02);
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.1);
+          border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.15);
         }
       `}</style>
     </div>
