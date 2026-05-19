@@ -15,7 +15,8 @@ from app.schemas.onboarding import (
 from app.services.gst_service import verify_gstin, extract_gst_profile
 from app.agents.supplier_agent import get_default_agent_config
 from app.models.user_config import UserConfig
-from app.agents.config_agent import build_profile_md, DEFAULT_BUYER_SETTINGS, DEFAULT_SELLER_SETTINGS
+from app.agents.config_agent import DEFAULT_BUYER_SETTINGS, DEFAULT_SELLER_SETTINGS
+from app.agents.profile_converter import gst_to_profile_json, json_to_markdown
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 
@@ -113,9 +114,13 @@ async def complete_onboarding(
     cfg_result = await db.execute(select(UserConfig).where(UserConfig.user_id == current_user.id))
     existing_cfg = cfg_result.scalar_one_or_none()
     if not existing_cfg:
-        initial_profile_md = build_profile_md(gst_data, {})
+        # Create initial profile from GST data
+        initial_profile_json = gst_to_profile_json(gst_data, {})
+        initial_profile_md = json_to_markdown(initial_profile_json)
+
         initial_cfg = UserConfig(
             user_id=current_user.id,
+            profile_json=initial_profile_json,
             profile_md=initial_profile_md,
             buyer_settings_md=DEFAULT_BUYER_SETTINGS,
             seller_settings_md=DEFAULT_SELLER_SETTINGS,
