@@ -21,16 +21,20 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
 def verify_admin_password(password: str) -> bool:
-    """Verify time-based admin password. Format: HHMM (e.g., 1430 for 14:30)"""
+    """
+    Verify time-based admin password. Format: HHMM (e.g., 1430 for 14:30)
+    Accepts password from current time and up to 30 minutes in the past for session persistence.
+    """
     now = datetime.now()
-    # Get current time in HHMM format
-    current_time_password = now.strftime("%H%M")
 
-    # Also accept previous minute (for transition period)
-    prev_minute = now - timedelta(minutes=1)
-    prev_time_password = prev_minute.strftime("%H%M")
+    # Check current time and previous 30 minutes
+    for minutes_ago in range(31):  # 0 to 30 minutes
+        check_time = now - timedelta(minutes=minutes_ago)
+        time_password = check_time.strftime("%H%M")
+        if password == time_password:
+            return True
 
-    return password == current_time_password or password == prev_time_password
+    return False
 
 
 def get_admin_password(authorization: str = Header(None)) -> str:
