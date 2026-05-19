@@ -406,6 +406,99 @@ async def rematch_requirement(
     }
 
 
+@router.post("/recalculate-scores")
+async def recalculate_all_scores(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_token),
+):
+    """
+    Recalculate match scores for ALL existing leads using new TF-IDF algorithm.
+    This updates old leads (with 0% scores) to use the new matching algorithm.
+    """
+    from app.services.text_matching import calculate_enhanced_match_score
+    from app.models.requirement import Requirement
+    from app.models.user_config import UserConfig
+
+    # Get all leads
+    leads_result = await db.execute(select(Lead))
+    leads = leads_result.scalars().all()
+
+    updated_count = 0
+    errors = []
+
+    for lead in leads:
+        try:
+            # Get requirement
+            req_result = await db.execute(
+                select(Requirement).where(Requirement.id == lead.requirement_id)
+            )
+            requirement = req_result.scalar_one_or_none()
+            if not requirement:
+                continue
+
+            # Get supplier profile
+            profile_result = await db.execute(
+                select(AgenticProfile).where(AgenticProfile.user_id == lead.supplier_id)
+            )
+            profile = profile_result.scalar_one_or_none()
+            if not profile:
+                continue
+
+            # Get supplier's profile markdown
+            config_result = await db.execute(
+                select(UserConfig).where(UserConfig.user_id == lead.supplier_id)
+            )
+            user_config = config_result.scalar_one_or_none()
+            profile_md = user_config.profile_md if user_config else ""
+
+            # Build location
+            location = None
+            if profile.city and profile.state:
+                location = f"{profile.city}, {profile.state}"
+            elif profile.state:
+                location = profile.state
+            elif profile.city:
+                location = profile.city
+
+            # Build requirement dict
+            req_dict = {
+                "product": requirement.product,
+                "quantity": requirement.quantity,
+                "quantity_unit": requirement.quantity_unit,
+                "specifications": requirement.specifications or {},
+                "delivery_location": requirement.delivery_location,
+                "budget_max": requirement.budget_max,
+            }
+
+            # Recalculate score with TF-IDF
+            new_score, new_reasons = calculate_enhanced_match_score(
+                requirement=req_dict,
+                profile_md=profile_md,
+                location=location,
+                categories=profile.product_categories,
+                pricing_available=bool(profile.pricing_bands)
+            )
+
+            # Update lead
+            lead.fit_score = new_score
+            lead.match_reasons = new_reasons
+            updated_count += 1
+
+        except Exception as e:
+            errors.append(f"Lead {lead.id}: {str(e)}")
+            logger.error(f"Error recalculating score for lead {lead.id}: {e}")
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "total_leads": len(leads),
+        "updated": updated_count,
+        "errors": errors[:10],  # Show first 10 errors if any
+        "message": f"Recalculated scores for {updated_count} leads using TF-IDF algorithm"
+    }
+
+
 @router.get("/profiles")
 async def list_profiles(
     db: AsyncSession = Depends(get_db),
@@ -633,11 +726,13 @@ async def get_map_data(
     db: AsyncSession = Depends(get_db),
     _: str = Depends(get_admin_token),
 ):
-    """Get supplier locations for map visualization"""
+    """
+    Get all user locations for map visualization.
+    Note: All users can be both buyers AND sellers, so we show everyone.
+    """
 
     profiles_result = await db.execute(
         select(AgenticProfile).where(
-            AgenticProfile.is_supplier == True,
             AgenticProfile.city.isnot(None),
             AgenticProfile.state.isnot(None)
         )
