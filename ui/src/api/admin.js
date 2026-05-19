@@ -20,18 +20,30 @@ export const clearAdminToken = () => {
   sessionStorage.removeItem('adminToken')
 }
 
-const adminRequest = (config) => {
+const adminRequest = async (config) => {
   const token = getAdminToken()
   if (!token) {
+    // Redirect to login if no token
+    window.location.href = '/admin/login'
     throw new Error('Admin not authenticated')
   }
-  return client({
-    ...config,
-    headers: {
-      ...config.headers,
-      'Authorization': `Bearer ${token}`,
-    },
-  })
+
+  try {
+    return await client({
+      ...config,
+      headers: {
+        ...config.headers,
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+  } catch (error) {
+    // If 403, token is expired or invalid - clear and redirect to login
+    if (error.response?.status === 403) {
+      clearAdminToken()
+      window.location.href = '/admin/login'
+    }
+    throw error
+  }
 }
 
 export const adminLogin = (password) => {

@@ -1,17 +1,26 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useNavigate, NavLink } from 'react-router-dom'
 import { getAdminToken, clearAdminToken } from '@/api/admin'
 import { LayoutDashboard, FileText, Users, Map, LogOut, Shield } from 'lucide-react'
 
 export default function AdminLayout() {
   const navigate = useNavigate()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
     // Check if admin is authenticated
-    if (!getAdminToken()) {
-      navigate('/admin/login')
+    const token = getAdminToken()
+    if (!token) {
+      navigate('/admin/login', { replace: true })
+    } else {
+      setIsAuthenticated(true)
     }
   }, [navigate])
+
+  // Don't render layout until authentication is verified
+  if (!isAuthenticated) {
+    return null
+  }
 
   const handleLogout = () => {
     clearAdminToken()
