@@ -1,3 +1,4 @@
+import axios from 'axios'
 import client from './client'
 
 // Store admin token in session storage
@@ -28,7 +29,14 @@ const adminRequest = async (config) => {
   }
 
   try {
-    return await client({
+    // Create a custom axios instance for admin requests to avoid user token interference
+    const adminClient = axios.create({
+      baseURL: client.defaults.baseURL,
+      timeout: client.defaults.timeout
+    })
+
+    // Force admin token to be used (override any user token)
+    return await adminClient({
       ...config,
       headers: {
         ...config.headers,
