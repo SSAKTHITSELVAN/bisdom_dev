@@ -13,6 +13,7 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.user_config import UserConfig
 from app.agents.profile_converter import json_to_markdown
+from app.agents.profile_converter_v2 import json_to_markdown_v2, convert_old_to_new_format
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["Profile"])
@@ -133,8 +134,11 @@ async def update_profile(
     if request.payment_terms is not None:
         profile_json["payment_terms"] = request.payment_terms
 
-    # Regenerate markdown cache
-    profile_md = json_to_markdown(profile_json)
+    # Regenerate markdown cache - use v2 if it has supplier/catalogue structure
+    if "supplier" in profile_json or "catalogue" in profile_json:
+        profile_md = json_to_markdown_v2(profile_json)
+    else:
+        profile_md = json_to_markdown(profile_json)
 
     # Save both
     config.profile_json = profile_json
