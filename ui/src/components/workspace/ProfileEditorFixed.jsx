@@ -13,6 +13,8 @@ export default function ProfileEditorFixed() {
   const [editingSection, setEditingSection] = useState(null)
   const [formData, setFormData] = useState({})
   const [saving, setSaving] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [jsonInput, setJsonInput] = useState('')
 
   useEffect(() => {
     loadProfile()
@@ -164,6 +166,74 @@ export default function ProfileEditorFixed() {
       setSaving(false)
     }
   }
+
+  const handleImportJSON = async () => {
+    try {
+      const parsed = JSON.parse(jsonInput)
+
+      // Validate structure
+      if (!parsed.supplier || !parsed.catalogue) {
+        toast.error('Invalid format! Must have "supplier" and "catalogue" fields')
+        return
+      }
+
+      setSaving(true)
+      const res = await updateProfile(parsed)
+      setProfile(res.data.profile)
+      setShowImportModal(false)
+      setJsonInput('')
+      toast.success('Profile imported successfully!')
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        toast.error('Invalid JSON format! Please check syntax')
+      } else {
+        toast.error('Failed to import profile')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const exampleJSON = `{
+  "supplier": {
+    "name": "Define Clothing",
+    "location": "Muthanampalayam, Tiruppur, Tamil Nadu, India",
+    "business_type": "Manufacturer",
+    "legal_status": "Proprietorship",
+    "since": 2022,
+    "annual_turnover": "40L - 1.5Cr",
+    "team_size": "26-50",
+    "gst_registration": "Oct 2022",
+    "hsn_codes": ["6109", "6111"]
+  },
+  "catalogue": [
+    {
+      "collection": "Mens T Shirt",
+      "product_name": "Men Plain T Shirt",
+      "product_url": "https://www.indiamart.com/proddetail/...",
+      "price_per_piece": 165,
+      "currency": "INR",
+      "moq": 50,
+      "moq_unit": "Pieces",
+      "fabric": "Customised",
+      "gsm": 240,
+      "fit_type": "Regular Fit",
+      "neck_type": "Round Neck",
+      "sleeve_type": "Half Sleeve",
+      "pattern": null,
+      "print_type": ["Screen Printing", "DTF Printing", "Embroidery"],
+      "color": null,
+      "available_sizes": ["S", "M", "L", "XL", "XXL"],
+      "use_case": ["Sports Wear", "Casual Wear", "Gym Wear"],
+      "wash_care": null,
+      "fabric_treatment": "Bio Washed",
+      "country_of_origin": "India",
+      "customization_available": true,
+      "confidence_flag": "ok",
+      "needs_confirmation": false
+    }
+  ]
+}`
 
   // Modal Component
   const Modal = ({ children, onClose, title }) => (
@@ -335,6 +405,133 @@ export default function ProfileEditorFixed() {
             {saving ? <Spinner size={16} /> : <Check size={16} />}
             Save Supplier Info
           </button>
+        </div>
+      </Modal>
+    )
+  }
+
+  // Import JSON Modal
+  const ImportJSONModal = () => {
+    const [showExample, setShowExample] = useState(false)
+
+    return (
+      <Modal
+        title="📥 Import Profile from JSON"
+        onClose={() => setShowImportModal(false)}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 12 }}>
+            Paste your complete profile JSON below. The format should include <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4 }}>supplier</code> and <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4 }}>catalogue</code> fields.
+          </p>
+
+          <button
+            onClick={() => setShowExample(!showExample)}
+            className="btn-ghost"
+            style={{ width: 'auto', padding: '6px 12px', fontSize: 11, marginBottom: 12 }}
+          >
+            {showExample ? '▼ Hide' : '▶'} Show Example Format
+          </button>
+
+          {showExample && (
+            <div style={{
+              background: 'rgba(0,0,0,0.4)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 8,
+              padding: 16,
+              marginBottom: 16,
+              maxHeight: 300,
+              overflowY: 'auto'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Example JSON Format:</span>
+                <button
+                  onClick={() => {
+                    setJsonInput(exampleJSON)
+                    toast.success('Example copied to input!')
+                  }}
+                  className="btn-ghost"
+                  style={{ width: 'auto', padding: '4px 10px', fontSize: 10 }}
+                >
+                  Copy to Input
+                </button>
+              </div>
+              <pre style={{
+                fontSize: 11,
+                color: '#a5f3fc',
+                margin: 0,
+                fontFamily: 'JetBrains Mono, Consolas, monospace',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all'
+              }}>
+                {exampleJSON}
+              </pre>
+            </div>
+          )}
+        </div>
+
+        <label style={{
+          display: 'block',
+          fontSize: 11,
+          color: 'rgba(255,255,255,0.5)',
+          marginBottom: 6,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em'
+        }}>
+          Paste Your JSON Here
+        </label>
+        <textarea
+          value={jsonInput}
+          onChange={(e) => setJsonInput(e.target.value)}
+          placeholder='{"supplier": {...}, "catalogue": [...]}'
+          style={{
+            width: '100%',
+            minHeight: 400,
+            background: 'rgba(0,0,0,0.4)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 8,
+            color: '#a5f3fc',
+            fontSize: 12,
+            fontFamily: 'JetBrains Mono, Consolas, monospace',
+            padding: '16px',
+            outline: 'none',
+            resize: 'vertical',
+            lineHeight: 1.6
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#60a5fa'}
+          onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
+        />
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+          <button
+            onClick={() => setShowImportModal(false)}
+            className="btn-ghost"
+            style={{ flex: 1, padding: '12px 24px' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleImportJSON}
+            disabled={saving || !jsonInput.trim()}
+            className="btn-primary"
+            style={{ flex: 1, padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
+          >
+            {saving ? <Spinner size={16} /> : <Upload size={16} />}
+            Import Profile
+          </button>
+        </div>
+
+        <div style={{
+          marginTop: 16,
+          padding: 12,
+          background: 'rgba(59,130,246,0.1)',
+          border: '1px solid rgba(59,130,246,0.2)',
+          borderRadius: 8,
+          fontSize: 11,
+          color: 'rgba(255,255,255,0.6)'
+        }}>
+          ⚠️ <strong>Warning:</strong> Importing will replace your entire profile. Make sure to backup existing data if needed!
         </div>
       </Modal>
     )
@@ -702,14 +899,36 @@ export default function ProfileEditorFixed() {
         padding: '24px 32px 20px',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
         background: 'rgba(13,31,60,0.6)',
-        backdropFilter: 'blur(12px)'
+        backdropFilter: 'blur(12px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
       }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>
-          Business Profile & Catalog
-        </h2>
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
-          Professional catalog management system for AI-powered negotiations
-        </p>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>
+            Business Profile & Catalog
+          </h2>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
+            Professional catalog management system for AI-powered negotiations
+          </p>
+        </div>
+        <button
+          onClick={() => setShowImportModal(true)}
+          className="btn-primary"
+          style={{
+            width: 'auto',
+            padding: '10px 20px',
+            fontSize: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            border: '1px solid rgba(16,185,129,0.3)'
+          }}
+        >
+          <Upload size={14} />
+          Import from JSON
+        </button>
       </div>
 
       {/* Content */}
@@ -923,6 +1142,7 @@ export default function ProfileEditorFixed() {
       </div>
 
       {/* Modals */}
+      {showImportModal && <ImportJSONModal />}
       {editingSection === 'supplier' && <SupplierEditor />}
       {editingSection === 'catalog-add' && <CatalogItemEditor />}
       {editingSection?.startsWith('catalog-edit-') && (
