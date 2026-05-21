@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { getConfig, updateConfig } from '@/api/config'
 import Spinner from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
@@ -1000,6 +1000,15 @@ export default function ProfileEditorV4() {
     )
   }
 
+  // Always extract data (before early returns) to avoid hooks order issues
+  const basicDetails = profile?.basic_details || {}
+  const productCategories = profile?.product_categories || []
+  const infrastructureItems = profile?.infrastructure_items || []
+  const compliance = profile?.compliance || { certifications: [], other: [] }
+
+  // Compute available categories for infrastructure tagging
+  const availableCategories = productCategories.map(c => c.name).filter(n => n)
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
@@ -1007,17 +1016,6 @@ export default function ProfileEditorV4() {
       </div>
     )
   }
-
-  const basicDetails = profile?.basic_details || {}
-  const productCategories = profile?.product_categories || []
-  const infrastructureItems = profile?.infrastructure_items || []
-  const compliance = profile?.compliance || { certifications: [], other: [] }
-
-  // Compute available categories for infrastructure tagging
-  const availableCategories = useMemo(() =>
-    productCategories.map(c => c.name).filter(n => n),
-    [productCategories]
-  )
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0f172a', overflow: 'hidden' }}>
