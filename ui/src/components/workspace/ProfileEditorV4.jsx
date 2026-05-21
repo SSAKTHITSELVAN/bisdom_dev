@@ -297,7 +297,8 @@ export default function ProfileEditorV4() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <InputField label="Company Name" value={localData.company_name || ''} onChange={(v) => setLocalData(prev => ({ ...prev, company_name: v }))} />
           <InputField label="GST Number" value={localData.gst_number || ''} onChange={(v) => setLocalData(prev => ({ ...prev, gst_number: v }))} />
-          <InputField label="Address" value={localData.address || ''} onChange={(v) => setLocalData(prev => ({ ...prev, address: v }))} />
+          <InputField label="Registered Address" value={localData.address || ''} onChange={(v) => setLocalData(prev => ({ ...prev, address: v }))} />
+          <InputField label="Operations Address" value={localData.operations_address || ''} onChange={(v) => setLocalData(prev => ({ ...prev, operations_address: v }))} placeholder="Leave blank if same as registered address" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
             <InputField label="City" value={localData.city || ''} onChange={(v) => setLocalData(prev => ({ ...prev, city: v }))} />
             <InputField label="State" value={localData.state || ''} onChange={(v) => setLocalData(prev => ({ ...prev, state: v }))} />
@@ -347,6 +348,7 @@ export default function ProfileEditorV4() {
       color: '',
       size_range: '',
       moq: '',
+      price: '',
       description: '',
       other: ''
     })
@@ -397,12 +399,20 @@ export default function ProfileEditorV4() {
             />
           </div>
 
-          <InputField
-            label="MOQ (Minimum Order Quantity)"
-            value={localData.moq}
-            onChange={(v) => setLocalData(prev => ({ ...prev, moq: v }))}
-            placeholder="e.g., 500 pieces"
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+            <InputField
+              label="MOQ (Minimum Order Quantity)"
+              value={localData.moq}
+              onChange={(v) => setLocalData(prev => ({ ...prev, moq: v }))}
+              placeholder="e.g., 500 pieces"
+            />
+            <InputField
+              label="Price"
+              value={localData.price || ''}
+              onChange={(v) => setLocalData(prev => ({ ...prev, price: v }))}
+              placeholder="e.g., ₹250/piece"
+            />
+          </div>
 
           <div>
             <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 8, display: 'block', fontWeight: 600 }}>Description</label>
@@ -803,6 +813,7 @@ export default function ProfileEditorV4() {
         company_name: "Define Clothing Pvt Ltd",
         gst_number: "33XXXXX1234X1ZX",
         address: "123, Industrial Area, Phase 2",
+        operations_address: "456, Production Zone, Phase 3",
         city: "Tiruppur",
         state: "Tamil Nadu",
         pincode: "641607",
@@ -822,6 +833,7 @@ export default function ProfileEditorV4() {
               color: "All colors available",
               size_range: "S to XXL",
               moq: "500 pieces",
+              price: "₹250/piece",
               description: "Premium quality cotton t-shirts with superior stitching and finish",
               other: "Customization available for logos and designs"
             },
@@ -832,6 +844,7 @@ export default function ProfileEditorV4() {
               color: "Navy, Black, White, Grey",
               size_range: "M to XXXL",
               moq: "300 pieces",
+              price: "₹350/piece",
               description: "Professional polo shirts for corporate wear",
               other: "Bulk orders get 10% discount"
             }
@@ -847,6 +860,7 @@ export default function ProfileEditorV4() {
               color: "White, Beige, Blue, Grey",
               size_range: "Queen, King, Super King",
               moq: "1000 pieces",
+              price: "₹450/piece",
               description: "Luxury bed sheets with high thread count",
               other: "Matching pillow covers available"
             }
@@ -862,6 +876,7 @@ export default function ProfileEditorV4() {
               color: "Various",
               size_range: "Adjustable",
               moq: "200 pieces",
+              price: "₹120/piece",
               description: "Premium quality caps for casual and sports wear",
               other: "Embroidery available"
             }
@@ -1167,6 +1182,7 @@ export default function ProfileEditorV4() {
                   <InfoItem label="GST" value={basicDetails.gst_number} />
                   <InfoItem label="City" value={basicDetails.city} />
                   <InfoItem label="State" value={basicDetails.state} />
+                  {basicDetails.operations_address && <InfoItem label="Operations Address" value={basicDetails.operations_address} />}
                   {basicDetails.phone && <InfoItem label="Phone" value={basicDetails.phone} />}
                   {basicDetails.email && <InfoItem label="Email" value={basicDetails.email} />}
                 </div>
@@ -1365,6 +1381,7 @@ export default function ProfileEditorV4() {
                                     {prod.color && <ProductDetail label="Colors" value={prod.color} />}
                                     {prod.size_range && <ProductDetail label="Sizes" value={prod.size_range} />}
                                     {prod.moq && <ProductDetail label="MOQ" value={prod.moq} />}
+                                    {prod.price && <ProductDetail label="Price" value={prod.price} />}
                                     {prod.description && (
                                       <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                                         <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginBottom: 4 }}>Description:</div>

@@ -38,9 +38,7 @@ export default function WorkspaceLayout() {
       setLoading(false)
     }
     load()
-    // Poll every 30 seconds (increased from 15s to reduce server load)
-    const interval = setInterval(load, 30000)
-    return () => clearInterval(interval)
+    // No automatic polling - only refresh when user manually triggers via refreshKey
   }, [refreshKey])
 
   const leadsByRequirement = buyerLeads.reduce((acc, lead) => {
