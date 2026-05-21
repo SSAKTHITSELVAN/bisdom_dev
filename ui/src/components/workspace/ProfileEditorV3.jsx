@@ -962,7 +962,20 @@ export default function ProfileEditorV3() {
             title="1. Basic Details"
             accent="#60a5fa"
             onEdit={() => {
-              setFormData({ basic_details: basicDetails })
+              // Ensure basic_details has proper default values
+              const basicDetailsData = basicDetails || {
+                company_name: '',
+                gst_number: '',
+                address: '',
+                city: '',
+                state: '',
+                pincode: '',
+                phone: '',
+                email: '',
+                website: '',
+                other: []
+              }
+              setFormData({ basic_details: basicDetailsData })
               setEditingSection('basic-details')
             }}
           >
@@ -972,7 +985,19 @@ export default function ProfileEditorV3() {
                 <p style={{ fontSize: 13, marginBottom: 16 }}>No basic details yet</p>
                 <button
                   onClick={() => {
-                    setFormData({ basic_details: basicDetails })
+                    const basicDetailsData = basicDetails || {
+                      company_name: '',
+                      gst_number: '',
+                      address: '',
+                      city: '',
+                      state: '',
+                      pincode: '',
+                      phone: '',
+                      email: '',
+                      website: '',
+                      other: []
+                    }
+                    setFormData({ basic_details: basicDetailsData })
                     setEditingSection('basic-details')
                   }}
                   className="btn-primary"
@@ -1100,7 +1125,16 @@ export default function ProfileEditorV3() {
             title="3. Company Infrastructure"
             accent="#f59e0b"
             onEdit={() => {
-              setFormData({ infrastructure })
+              // Ensure infrastructure has proper default values
+              const infrastructureData = infrastructure || {
+                factory_area_sqft: '',
+                number_of_machines: '',
+                production_capacity: '',
+                workforce_size: '',
+                storage_capacity: '',
+                other: []
+              }
+              setFormData({ infrastructure: infrastructureData })
               setEditingSection('infrastructure')
             }}
           >
@@ -1110,7 +1144,15 @@ export default function ProfileEditorV3() {
                 <p style={{ fontSize: 13, marginBottom: 16 }}>No infrastructure details yet</p>
                 <button
                   onClick={() => {
-                    setFormData({ infrastructure })
+                    const infrastructureData = infrastructure || {
+                      factory_area_sqft: '',
+                      number_of_machines: '',
+                      production_capacity: '',
+                      workforce_size: '',
+                      storage_capacity: '',
+                      other: []
+                    }
+                    setFormData({ infrastructure: infrastructureData })
                     setEditingSection('infrastructure')
                   }}
                   className="btn-primary"
@@ -1147,7 +1189,9 @@ export default function ProfileEditorV3() {
             title="4. Compliance & Certificates"
             accent="#8b5cf6"
             onEdit={() => {
-              setFormData({ compliance })
+              // Ensure compliance has proper default values
+              const complianceData = compliance || { certifications: [], other: [] }
+              setFormData({ compliance: complianceData })
               setEditingSection('compliance')
             }}
           >
@@ -1157,7 +1201,8 @@ export default function ProfileEditorV3() {
                 <p style={{ fontSize: 13, marginBottom: 16 }}>No certifications yet</p>
                 <button
                   onClick={() => {
-                    setFormData({ compliance })
+                    const complianceData = compliance || { certifications: [], other: [] }
+                    setFormData({ compliance: complianceData })
                     setEditingSection('compliance')
                   }}
                   className="btn-primary"
