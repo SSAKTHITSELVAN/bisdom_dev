@@ -159,14 +159,18 @@ export default function ProfileEditorV3() {
 
   // Section 4: Compliance
   const handleUpdateCompliance = async (data) => {
+    console.log('💾 Saving compliance data:', data)
     setSaving(true)
     try {
       const updatedProfile = { ...profile, compliance: data }
+      console.log('📤 Sending to API:', updatedProfile)
       const res = await updateConfig({ profile: updatedProfile })
+      console.log('✅ API Response:', res.data)
       setProfile(res.data.profile)
       setEditingSection(null)
       toast.success('Compliance details updated')
     } catch (error) {
+      console.error('❌ Save failed:', error)
       toast.error('Failed to update')
     } finally {
       setSaving(false)
@@ -648,6 +652,7 @@ export default function ProfileEditorV3() {
 
         <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
           <button
+            type="button"
             onClick={() => setEditingSection(null)}
             className="btn-ghost"
             style={{ flex: 1, padding: '12px 24px' }}
@@ -655,6 +660,7 @@ export default function ProfileEditorV3() {
             Cancel
           </button>
           <button
+            type="button"
             onClick={() => handleUpdateCompliance(localData)}
             disabled={saving}
             className="btn-primary"
@@ -1277,8 +1283,11 @@ const TagInput = ({ label, values, onChange, placeholder }) => {
 
   const handleAdd = () => {
     const trimmed = inputValue.trim()
+    console.log('➕ TagInput Add:', { trimmed, currentValues: values, willAdd: trimmed && !values.includes(trimmed) })
     if (trimmed && !values.includes(trimmed)) {
-      onChange([...values, trimmed])
+      const newValues = [...values, trimmed]
+      console.log('✅ Calling onChange with:', newValues)
+      onChange(newValues)
       setInputValue('')
     }
   }
@@ -1319,6 +1328,7 @@ const TagInput = ({ label, values, onChange, placeholder }) => {
           }}
         />
         <button
+          type="button"
           onClick={handleAdd}
           className="btn-primary"
           style={{ width: 'auto', padding: '0 16px', fontSize: 12 }}
