@@ -436,27 +436,37 @@ export default function ProfileEditorV4() {
     )
   }
 
-  // Infrastructure Editor
+  // Infrastructure Editor - Supports multiple categories with individual capacities
   const InfrastructureEditor = ({ initialItem, onSave, onClose, isNew, availableCategories }) => {
     const [localData, setLocalData] = useState(initialItem || {
       name: '',
-      details: { area: '', machines: '', capacity: '', workforce: '' },
-      tagged_categories: []
+      area: '',
+      machines: '',
+      workforce: '',
+      category_capacities: [] // Array of {category: string, capacity: string}
     })
 
-    const toggleCategory = (category) => {
-      const tags = localData.tagged_categories || []
-      if (tags.includes(category)) {
-        setLocalData(prev => ({
-          ...prev,
-          tagged_categories: tags.filter(t => t !== category)
-        }))
-      } else {
-        setLocalData(prev => ({
-          ...prev,
-          tagged_categories: [...tags, category]
-        }))
-      }
+    const addCategory = () => {
+      setLocalData(prev => ({
+        ...prev,
+        category_capacities: [
+          ...(prev.category_capacities || []),
+          { category: '', capacity: '' }
+        ]
+      }))
+    }
+
+    const updateCategoryCapacity = (index, field, value) => {
+      const updated = [...(localData.category_capacities || [])]
+      updated[index] = { ...updated[index], [field]: value }
+      setLocalData(prev => ({ ...prev, category_capacities: updated }))
+    }
+
+    const removeCategory = (index) => {
+      setLocalData(prev => ({
+        ...prev,
+        category_capacities: prev.category_capacities.filter((_, i) => i !== index)
+      }))
     }
 
     return (
@@ -466,8 +476,9 @@ export default function ProfileEditorV4() {
         onClose={onClose}
         onSave={() => onSave(localData)}
         saving={saving}
+        size="large"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {availableCategories.length === 0 && (
             <div style={{
               padding: 14,
@@ -482,68 +493,159 @@ export default function ProfileEditorV4() {
           )}
 
           <InputField
-            label="Infrastructure Name"
+            label="Infrastructure Name *"
             value={localData.name}
             onChange={(v) => setLocalData(prev => ({ ...prev, name: v }))}
             placeholder="e.g., Factory A, Warehouse 1, Dyeing Unit"
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 18 }}>
             <InputField
               label="Area (sq ft)"
-              value={localData.details?.area || ''}
-              onChange={(v) => setLocalData(prev => ({ ...prev, details: { ...prev.details, area: v } }))}
+              value={localData.area || ''}
+              onChange={(v) => setLocalData(prev => ({ ...prev, area: v }))}
+              placeholder="e.g., 25000"
             />
             <InputField
               label="Number of Machines"
-              value={localData.details?.machines || ''}
-              onChange={(v) => setLocalData(prev => ({ ...prev, details: { ...prev.details, machines: v } }))}
-            />
-            <InputField
-              label="Production Capacity"
-              value={localData.details?.capacity || ''}
-              onChange={(v) => setLocalData(prev => ({ ...prev, details: { ...prev.details, capacity: v } }))}
-              placeholder="e.g., 50000 pcs/month"
+              value={localData.machines || ''}
+              onChange={(v) => setLocalData(prev => ({ ...prev, machines: v }))}
+              placeholder="e.g., 45"
             />
             <InputField
               label="Workforce Size"
-              value={localData.details?.workforce || ''}
-              onChange={(v) => setLocalData(prev => ({ ...prev, details: { ...prev.details, workforce: v } }))}
+              value={localData.workforce || ''}
+              onChange={(v) => setLocalData(prev => ({ ...prev, workforce: v }))}
+              placeholder="e.g., 120"
             />
           </div>
 
           {availableCategories.length > 0 && (
             <div>
-              <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 10, display: 'block', fontWeight: 600 }}>
-                Tag Product Categories
-              </label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                {availableCategories.map((cat, idx) => {
-                  const isSelected = (localData.tagged_categories || []).includes(cat)
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => toggleCategory(cat)}
-                      style={{
-                        padding: '10px 16px',
-                        background: isSelected ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.05)',
-                        border: `1px solid ${isSelected ? 'rgba(16,185,129,0.6)' : 'rgba(255,255,255,0.15)'}`,
-                        borderRadius: 8,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: isSelected ? '#6ee7b7' : 'rgba(255,255,255,0.6)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6
-                      }}
-                    >
-                      {isSelected && <Check size={14} />}
-                      {cat}
-                    </button>
-                  )
-                })}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+                  Product Categories & Capacities
+                </label>
+                <button
+                  type="button"
+                  onClick={addCategory}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'rgba(16,185,129,0.2)',
+                    border: '1px solid rgba(16,185,129,0.4)',
+                    borderRadius: 7,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: '#6ee7b7',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  <Plus size={14} />
+                  Add Category
+                </button>
+              </div>
+
+              {(localData.category_capacities || []).length === 0 ? (
+                <div style={{
+                  padding: 20,
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px dashed rgba(255,255,255,0.15)',
+                  borderRadius: 10,
+                  textAlign: 'center',
+                  fontSize: 13,
+                  color: 'rgba(255,255,255,0.5)'
+                }}>
+                  No categories added. Click "Add Category" to specify production capacity for each product category.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {localData.category_capacities.map((item, idx) => (
+                    <div key={idx} style={{
+                      padding: '14px 16px',
+                      background: 'rgba(16,185,129,0.08)',
+                      border: '1px solid rgba(16,185,129,0.25)',
+                      borderRadius: 10,
+                      display: 'flex',
+                      gap: 12,
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6, display: 'block' }}>Category</label>
+                        <select
+                          value={item.category}
+                          onChange={(e) => updateCategoryCapacity(idx, 'category', e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            borderRadius: 8,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: '#6ee7b7',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="" style={{ background: '#1e293b', color: 'rgba(255,255,255,0.5)' }}>Select category...</option>
+                          {availableCategories.map((cat, catIdx) => (
+                            <option key={catIdx} value={cat} style={{ background: '#1e293b', color: '#6ee7b7' }}>
+                              {cat}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6, display: 'block' }}>Capacity</label>
+                        <input
+                          type="text"
+                          value={item.capacity}
+                          onChange={(e) => updateCategoryCapacity(idx, 'capacity', e.target.value)}
+                          placeholder="e.g., 50000 pcs/month"
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            borderRadius: 8,
+                            fontSize: 13,
+                            color: '#fff'
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeCategory(idx)}
+                        style={{
+                          padding: '10px',
+                          background: 'rgba(239,68,68,0.2)',
+                          border: '1px solid rgba(239,68,68,0.4)',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                          marginTop: 18
+                        }}
+                      >
+                        <Trash2 size={14} color="#ef4444" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{
+                marginTop: 12,
+                padding: 12,
+                background: 'rgba(96,165,250,0.08)',
+                border: '1px solid rgba(96,165,250,0.2)',
+                borderRadius: 8,
+                fontSize: 12,
+                color: 'rgba(255,255,255,0.6)',
+                lineHeight: 1.6
+              }}>
+                💡 <strong style={{ color: '#93c5fd' }}>Tip:</strong> Same infrastructure (e.g., Factory A) can produce multiple categories with different capacities.
+                For example: Apparel - 50,000 pcs/month, Home Textiles - 30,000 pcs/month.
               </div>
             </div>
           )}
@@ -724,13 +826,42 @@ export default function ProfileEditorV4() {
               other: "Customization available"
             }
           ]
+        },
+        {
+          name: "Home Textiles",
+          products: [
+            {
+              name: "Bed Sheets",
+              gsm: "200 GSM",
+              fabric_type: "Cotton Blend",
+              color: "White, Beige, Blue",
+              size_range: "Queen, King",
+              moq: "1000 pieces",
+              description: "Luxury bed sheets",
+              other: ""
+            }
+          ]
         }
       ],
       infrastructure_items: [
         {
-          name: "Factory A",
-          details: { area: "25000 sq ft", machines: "45", capacity: "50000 pcs/month", workforce: "120" },
-          tagged_categories: ["Apparel"]
+          name: "Factory A - Main Unit",
+          area: "25000",
+          machines: "45",
+          workforce: "120",
+          category_capacities: [
+            { category: "Apparel", capacity: "50000 pcs/month" },
+            { category: "Home Textiles", capacity: "30000 pcs/month" }
+          ]
+        },
+        {
+          name: "Warehouse 1",
+          area: "10000",
+          machines: "0",
+          workforce: "15",
+          category_capacities: [
+            { category: "Apparel", capacity: "Storage only" }
+          ]
         }
       ],
       compliance: {
@@ -1311,11 +1442,42 @@ export default function ProfileEditorV4() {
                         </div>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12, color: 'rgba(255,255,255,0.75)', marginBottom: 14 }}>
-                        {item.details?.area && <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Area:</span> {item.details.area}</div>}
-                        {item.details?.machines && <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Machines:</span> {item.details.machines}</div>}
-                        {item.details?.capacity && <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Capacity:</span> {item.details.capacity}</div>}
-                        {item.details?.workforce && <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Workforce:</span> {item.details.workforce}</div>}
+                        {/* Support both old and new format */}
+                        {(item.area || item.details?.area) && <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Area:</span> {item.area || item.details?.area} sq ft</div>}
+                        {(item.machines || item.details?.machines) && <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Machines:</span> {item.machines || item.details?.machines}</div>}
+                        {(item.workforce || item.details?.workforce) && <div><span style={{ color: 'rgba(255,255,255,0.5)' }}>Workforce:</span> {item.workforce || item.details?.workforce}</div>}
                       </div>
+
+                      {/* New format: Category-specific capacities */}
+                      {item.category_capacities && item.category_capacities.length > 0 && (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: 600 }}>Production Capacities:</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {item.category_capacities.map((cc, ccIdx) => cc.category && (
+                              <div key={ccIdx} style={{
+                                padding: '8px 12px',
+                                background: 'rgba(16,185,129,0.12)',
+                                border: '1px solid rgba(16,185,129,0.3)',
+                                borderRadius: 7,
+                                fontSize: 12,
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}>
+                                <span style={{ color: '#6ee7b7', fontWeight: 700 }}>{cc.category}</span>
+                                <span style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{cc.capacity}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Old format: General capacity and tagged categories (backward compatibility) */}
+                      {item.details?.capacity && (
+                        <div style={{ marginBottom: 12, fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
+                          <span style={{ color: 'rgba(255,255,255,0.5)' }}>Capacity:</span> {item.details.capacity}
+                        </div>
+                      )}
                       {item.tagged_categories && item.tagged_categories.length > 0 && (
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {item.tagged_categories.map((tag, tidx) => (

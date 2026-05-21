@@ -144,15 +144,32 @@ def json_to_markdown_v4(profile_json: dict) -> str:
             lines.append(f"### 🏭 {item_name}")
             lines.append("")
 
+            # Support both old format (details object) and new format (direct fields)
             details = item.get("details", {})
-            if details.get("area"):
-                lines.append(f"**Area:** {details['area']}")
-            if details.get("machines"):
-                lines.append(f"**Machines:** {details['machines']}")
+            area = item.get("area") or details.get("area")
+            machines = item.get("machines") or details.get("machines")
+            workforce = item.get("workforce") or details.get("workforce")
+
+            if area:
+                lines.append(f"**Area:** {area} sq ft")
+            if machines:
+                lines.append(f"**Machines:** {machines}")
+            if workforce:
+                lines.append(f"**Workforce:** {workforce}")
+
+            # New format: Category-specific capacities
+            category_capacities = item.get("category_capacities", [])
+            if category_capacities:
+                lines.append("")
+                lines.append("**Production Capacities by Category:**")
+                for cc in category_capacities:
+                    if cc.get("category") and cc.get("capacity"):
+                        lines.append(f"- {cc['category']}: {cc['capacity']}")
+
+            # Old format: General capacity and tagged categories (backward compatibility)
             if details.get("capacity"):
+                lines.append("")
                 lines.append(f"**Production Capacity:** {details['capacity']}")
-            if details.get("workforce"):
-                lines.append(f"**Workforce:** {details['workforce']}")
 
             tagged_cats = item.get("tagged_categories", [])
             if tagged_cats:
