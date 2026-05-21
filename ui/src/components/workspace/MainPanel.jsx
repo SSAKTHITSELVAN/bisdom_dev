@@ -4,7 +4,7 @@ import NewRequirementChat from './NewRequirementChat'
 import RequirementOverview from './RequirementOverview'
 import ConversationView from './ConversationView'
 import WelcomeScreen from './WelcomeScreen'
-import ProfilePanel from './ProfileEditorV3'
+import ProfilePanel from './ProfileEditorV4'
 import SettingsPanel from './SettingsPanel'
 import GeneralReqChat from './GeneralReqChat'
 

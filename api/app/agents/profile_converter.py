@@ -9,23 +9,176 @@ Maintains dual representation:
 
 def json_to_markdown(profile_json: dict) -> str:
     """
-    Convert new 4-section profile JSON to markdown format for AI agents.
+    Convert profile JSON to markdown format for AI agents.
 
-    Sections:
-    1. Basic Details
-    2. Products/Services
-    3. Infrastructure
-    4. Compliance/Certificates
+    Supports multiple versions:
+    - V4: product_categories, infrastructure_items (latest)
+    - V3: basic_details, products, infrastructure, compliance
+    - V2: company, location, products (legacy)
     """
     if not profile_json:
         return ""
 
-    # Check if it's the new format (4 sections)
+    # Check if it's V4 format (category-based products)
+    if "product_categories" in profile_json or "infrastructure_items" in profile_json:
+        return json_to_markdown_v4(profile_json)
+
+    # Check if it's V3 format (4 sections)
     if "basic_details" in profile_json:
         return json_to_markdown_v3(profile_json)
 
-    # Fall back to old format converter for backward compatibility
+    # Fall back to V2 format converter for backward compatibility
     return json_to_markdown_v2(profile_json)
+
+
+def json_to_markdown_v4(profile_json: dict) -> str:
+    """Convert V4 format (category-based products + tagged infrastructure) to markdown."""
+    basic_details = profile_json.get("basic_details", {})
+    product_categories = profile_json.get("product_categories", [])
+    infrastructure_items = profile_json.get("infrastructure_items", [])
+    compliance = profile_json.get("compliance", {})
+
+    company_name = basic_details.get("company_name", "My Business")
+
+    lines = [
+        f"# Business Profile",
+        f"## {company_name}",
+        "",
+        "---",
+        "",
+        "## 1️⃣ Basic Details",
+        "",
+    ]
+
+    # Basic company info
+    if basic_details.get("company_name"):
+        lines.append(f"**Company Name:** {basic_details['company_name']}")
+        lines.append("")
+    if basic_details.get("gst_number"):
+        lines.append(f"**GST Number:** `{basic_details['gst_number']}`")
+        lines.append("")
+
+    # Contact info
+    if basic_details.get("phone"):
+        lines.append(f"**Phone:** {basic_details['phone']}")
+        lines.append("")
+    if basic_details.get("email"):
+        lines.append(f"**Email:** {basic_details['email']}")
+        lines.append("")
+    if basic_details.get("website"):
+        lines.append(f"**Website:** {basic_details['website']}")
+        lines.append("")
+
+    # Address
+    address_parts = []
+    if basic_details.get("address"):
+        address_parts.append(basic_details["address"])
+    if basic_details.get("city"):
+        address_parts.append(basic_details["city"])
+    if basic_details.get("state"):
+        address_parts.append(basic_details["state"])
+    if basic_details.get("pincode"):
+        address_parts.append(basic_details["pincode"])
+
+    if address_parts:
+        lines.append("**Address:**")
+        lines.append(f"> {', '.join(address_parts)}")
+        lines.append("")
+
+    # Other details
+    if basic_details.get("other"):
+        lines.append("**Additional Info:**")
+        for item in basic_details["other"]:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    # Section 2: Product Categories
+    if product_categories:
+        lines += [
+            "---",
+            "",
+            "## 2️⃣ Product Categories",
+            "",
+        ]
+        for cat in product_categories:
+            cat_name = cat.get("name", "Unnamed Category")
+            lines.append(f"### 📦 {cat_name}")
+            lines.append("")
+
+            products = cat.get("products", [])
+            if products:
+                for prod in products:
+                    prod_name = prod.get("name", "Product")
+                    lines.append(f"- **{prod_name}**")
+                    if prod.get("description"):
+                        lines.append(f"  - Description: {prod['description']}")
+                    if prod.get("other"):
+                        lines.append(f"  - Other: {prod['other']}")
+                lines.append("")
+            else:
+                lines.append("*No products in this category*")
+                lines.append("")
+
+    # Section 3: Infrastructure
+    if infrastructure_items:
+        lines += [
+            "---",
+            "",
+            "## 3️⃣ Company Infrastructure",
+            "",
+        ]
+        for item in infrastructure_items:
+            item_name = item.get("name", "Infrastructure")
+            lines.append(f"### 🏭 {item_name}")
+            lines.append("")
+
+            details = item.get("details", {})
+            if details.get("area"):
+                lines.append(f"**Area:** {details['area']}")
+            if details.get("machines"):
+                lines.append(f"**Machines:** {details['machines']}")
+            if details.get("capacity"):
+                lines.append(f"**Production Capacity:** {details['capacity']}")
+            if details.get("workforce"):
+                lines.append(f"**Workforce:** {details['workforce']}")
+
+            tagged_cats = item.get("tagged_categories", [])
+            if tagged_cats:
+                lines.append("")
+                lines.append(f"**Supports Categories:** {', '.join(tagged_cats)}")
+
+            lines.append("")
+
+    # Section 4: Compliance/Certificates
+    compliance_has_content = compliance.get("certifications") or compliance.get("other")
+
+    if compliance_has_content:
+        lines += [
+            "---",
+            "",
+            "## 4️⃣ Compliance & Certificates",
+            "",
+        ]
+
+        if compliance.get("certifications"):
+            lines.append("**Certifications:**")
+            for cert in compliance["certifications"]:
+                lines.append(f"- ✅ {cert}")
+            lines.append("")
+
+        if compliance.get("other"):
+            lines.append("**Additional Info:**")
+            for item in compliance["other"]:
+                lines.append(f"- {item}")
+            lines.append("")
+
+    lines += [
+        "---",
+        "",
+        "*This profile is auto-generated from your structured data. Edit via the Profile page.*"
+    ]
+
+    return "\n".join(lines)
 
 
 def json_to_markdown_v3(profile_json: dict) -> str:
@@ -264,12 +417,12 @@ def json_to_markdown_v2(profile_json: dict) -> str:
 
 def gst_to_profile_json(gst_data: dict, url_profile: dict = None) -> dict:
     """
-    Convert GST data to new 4-section profile format.
+    Convert GST data to V4 profile format.
 
     Sections:
     1. Basic Details - Company name, GST, address
-    2. Products/Services - List of products
-    3. Infrastructure - Factory details
+    2. Product Categories - Categories with products
+    3. Infrastructure Items - Tagged with categories
     4. Compliance - Certifications
     """
     url_profile = url_profile or {}
@@ -300,28 +453,34 @@ def gst_to_profile_json(gst_data: dict, url_profile: dict = None) -> dict:
     # Filter out empty other items
     basic_details["other"] = [item for item in basic_details["other"] if item.split(": ", 1)[1].strip()]
 
-    # Section 2: Products (Empty by default, user fills in)
-    products = []
+    # Section 2: Product Categories (Empty by default, user fills in)
+    product_categories = []
     catalog = url_profile.get("product_catalog", []) or url_profile.get("products", [])
+
+    # Group products by category if available
+    category_map = {}
     for p in catalog:
+        cat_name = p.get("category", "General")
+        if cat_name not in category_map:
+            category_map[cat_name] = []
+
         product = {
             "name": p.get("product_name") or p.get("name", ""),
-            "category": p.get("category", ""),
             "description": p.get("description", ""),
             "other": ""
         }
         if product["name"]:
-            products.append(product)
+            category_map[cat_name].append(product)
 
-    # Section 3: Infrastructure (Empty by default, user fills in)
-    infrastructure = {
-        "factory_area_sqft": "",
-        "number_of_machines": "",
-        "production_capacity": "",
-        "workforce_size": "",
-        "storage_capacity": "",
-        "other": []
-    }
+    # Convert to category structure
+    for cat_name, products in category_map.items():
+        product_categories.append({
+            "name": cat_name,
+            "products": products
+        })
+
+    # Section 3: Infrastructure Items (Empty by default, user fills in)
+    infrastructure_items = []
 
     # Section 4: Compliance (Empty by default, user fills in)
     compliance = {
@@ -331,7 +490,7 @@ def gst_to_profile_json(gst_data: dict, url_profile: dict = None) -> dict:
 
     return {
         "basic_details": basic_details,
-        "products": products,
-        "infrastructure": infrastructure,
+        "product_categories": product_categories,
+        "infrastructure_items": infrastructure_items,
         "compliance": compliance
     }
