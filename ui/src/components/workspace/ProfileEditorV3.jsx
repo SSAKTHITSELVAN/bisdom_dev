@@ -159,18 +159,14 @@ export default function ProfileEditorV3() {
 
   // Section 4: Compliance
   const handleUpdateCompliance = async (data) => {
-    console.log('💾 Saving compliance data:', data)
     setSaving(true)
     try {
       const updatedProfile = { ...profile, compliance: data }
-      console.log('📤 Sending to API:', updatedProfile)
       const res = await updateConfig({ profile: updatedProfile })
-      console.log('✅ API Response:', res.data)
       setProfile(res.data.profile)
       setEditingSection(null)
       toast.success('Compliance details updated')
     } catch (error) {
-      console.error('❌ Save failed:', error)
       toast.error('Failed to update')
     } finally {
       setSaving(false)
@@ -905,7 +901,7 @@ export default function ProfileEditorV3() {
   const basicDetails = profile?.basic_details || {}
   const products = profile?.products || []
   const infrastructure = profile?.infrastructure || {}
-  const compliance = profile?.compliance || {}
+  const compliance = profile?.compliance || { certifications: [], other: [] }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a1628', overflow: 'hidden' }}>
@@ -1195,7 +1191,7 @@ export default function ProfileEditorV3() {
                 <p style={{ fontSize: 13, marginBottom: 16 }}>No certifications yet</p>
                 <button
                   onClick={() => {
-                    const complianceData = compliance || { certifications: [], other: [] }
+                    const complianceData = { certifications: [], other: [] }
                     setFormData({ compliance: complianceData })
                     setEditingSection('compliance')
                   }}
@@ -1210,14 +1206,14 @@ export default function ProfileEditorV3() {
               <>
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Certifications:</div>
-                  {compliance.certifications.map((cert, i) => (
+                  {(compliance.certifications || []).map((cert, i) => (
                     <Badge key={i} color="#8b5cf6">{cert}</Badge>
                   ))}
                 </div>
                 {compliance.other && compliance.other.length > 0 && (
                   <div style={{ paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                     <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>Other:</div>
-                    {compliance.other.map((item, i) => (
+                    {(compliance.other || []).map((item, i) => (
                       <Badge key={i} color="#10b981">{item}</Badge>
                     ))}
                   </div>
@@ -1283,11 +1279,8 @@ const TagInput = ({ label, values, onChange, placeholder }) => {
 
   const handleAdd = () => {
     const trimmed = inputValue.trim()
-    console.log('➕ TagInput Add:', { trimmed, currentValues: values, willAdd: trimmed && !values.includes(trimmed) })
     if (trimmed && !values.includes(trimmed)) {
-      const newValues = [...values, trimmed]
-      console.log('✅ Calling onChange with:', newValues)
-      onChange(newValues)
+      onChange([...values, trimmed])
       setInputValue('')
     }
   }
