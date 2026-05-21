@@ -1,26 +1,29 @@
-"""User config endpoint — profile_md, buyer_settings_md, seller_settings_md."""
+"""User config endpoint — profile_json, profile_md, buyer_settings_md, seller_settings_md."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 from app.db.base import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.user_config import UserConfig
 from app.agents.config_agent import DEFAULT_BUYER_SETTINGS, DEFAULT_SELLER_SETTINGS
+from app.agents.profile_converter import json_to_markdown
 
 router = APIRouter(prefix="/config", tags=["User Config"])
 
 
 class ConfigResponse(BaseModel):
-    profile_md: str
+    profile: Optional[dict] = None  # New: JSON format for UI
+    profile_md: str  # Auto-generated from profile_json
     buyer_settings_md: str
     seller_settings_md: str
 
 
 class UpdateConfigRequest(BaseModel):
-    profile_md: Optional[str] = None
+    profile: Optional[dict] = None  # New: Accept JSON profile
+    profile_md: Optional[str] = None  # Legacy: Direct markdown (deprecated)
     buyer_settings_md: Optional[str] = None
     seller_settings_md: Optional[str] = None
 
@@ -46,8 +49,16 @@ async def get_config(
     db: AsyncSession = Depends(get_db),
 ):
     cfg = await get_or_create_config(current_user.id, db)
+
+    # Return profile_json if available, otherwise fall back to empty structure
+    profile_json = cfg.profile_json if hasattr(cfg, 'profile_json') and cfg.profile_json else {}
+
+    # Auto-generate markdown from JSON
+    profile_md = json_to_markdown(profile_json) if profile_json else (cfg.profile_md or "")
+
     return ConfigResponse(
-        profile_md=cfg.profile_md or "",
+        profile=profile_json,
+        profile_md=profile_md,
         buyer_settings_md=cfg.buyer_settings_md or DEFAULT_BUYER_SETTINGS,
         seller_settings_md=cfg.seller_settings_md or DEFAULT_SELLER_SETTINGS,
     )
@@ -60,15 +71,33 @@ async def update_config(
     db: AsyncSession = Depends(get_db),
 ):
     cfg = await get_or_create_config(current_user.id, db)
-    if request.profile_md is not None:
+
+    # Update profile_json if provided (NEW)
+    if request.profile is not None:
+        if hasattr(cfg, 'profile_json'):
+            cfg.profile_json = request.profile
+        # Auto-generate markdown from JSON
+        cfg.profile_md = json_to_markdown(request.profile)
+
+    # Legacy: direct markdown update (DEPRECATED)
+    elif request.profile_md is not None:
         cfg.profile_md = request.profile_md
+
     if request.buyer_settings_md is not None:
         cfg.buyer_settings_md = request.buyer_settings_md
     if request.seller_settings_md is not None:
         cfg.seller_settings_md = request.seller_settings_md
+
     await db.flush()
+    await db.commit()
+
+    # Return updated data
+    profile_json = cfg.profile_json if hasattr(cfg, 'profile_json') and cfg.profile_json else {}
+    profile_md = json_to_markdown(profile_json) if profile_json else cfg.profile_md
+
     return ConfigResponse(
-        profile_md=cfg.profile_md or "",
+        profile=profile_json,
+        profile_md=profile_md,
         buyer_settings_md=cfg.buyer_settings_md or "",
         seller_settings_md=cfg.seller_settings_md or "",
     )

@@ -9,9 +9,187 @@ Maintains dual representation:
 
 def json_to_markdown(profile_json: dict) -> str:
     """
-    Convert structured profile JSON to markdown format for AI agents.
-    This is the SAME formatting logic as build_profile_md but reads from JSON.
+    Convert new 4-section profile JSON to markdown format for AI agents.
+
+    Sections:
+    1. Basic Details
+    2. Products/Services
+    3. Infrastructure
+    4. Compliance/Certificates
     """
+    if not profile_json:
+        return ""
+
+    # Check if it's the new format (4 sections)
+    if "basic_details" in profile_json:
+        return json_to_markdown_v3(profile_json)
+
+    # Fall back to old format converter for backward compatibility
+    return json_to_markdown_v2(profile_json)
+
+
+def json_to_markdown_v3(profile_json: dict) -> str:
+    """Convert new 4-section format to markdown."""
+    basic_details = profile_json.get("basic_details", {})
+    products = profile_json.get("products", [])
+    infrastructure = profile_json.get("infrastructure", {})
+    compliance = profile_json.get("compliance", {})
+
+    company_name = basic_details.get("company_name", "My Business")
+
+    lines = [
+        f"# Business Profile",
+        f"## {company_name}",
+        "",
+        "---",
+        "",
+        "## 1️⃣ Basic Details",
+        "",
+    ]
+
+    # Basic company info
+    if basic_details.get("company_name"):
+        lines.append(f"**Company Name:** {basic_details['company_name']}")
+        lines.append("")
+    if basic_details.get("gst_number"):
+        lines.append(f"**GST Number:** `{basic_details['gst_number']}`")
+        lines.append("")
+
+    # Contact info
+    if basic_details.get("phone"):
+        lines.append(f"**Phone:** {basic_details['phone']}")
+        lines.append("")
+    if basic_details.get("email"):
+        lines.append(f"**Email:** {basic_details['email']}")
+        lines.append("")
+    if basic_details.get("website"):
+        lines.append(f"**Website:** {basic_details['website']}")
+        lines.append("")
+
+    # Address
+    address_parts = []
+    if basic_details.get("address"):
+        address_parts.append(basic_details["address"])
+    if basic_details.get("city"):
+        address_parts.append(basic_details["city"])
+    if basic_details.get("state"):
+        address_parts.append(basic_details["state"])
+    if basic_details.get("pincode"):
+        address_parts.append(basic_details["pincode"])
+
+    if address_parts:
+        lines.append("**Address:**")
+        lines.append(f"> {', '.join(address_parts)}")
+        lines.append("")
+
+    # Other details
+    if basic_details.get("other"):
+        lines.append("**Additional Info:**")
+        for item in basic_details["other"]:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    # Section 2: Products/Services
+    if products:
+        lines += [
+            "---",
+            "",
+            "## 2️⃣ Products/Services",
+            "",
+        ]
+        for idx, p in enumerate(products, 1):
+            lines.append(f"### {idx}. {p.get('name', 'Product')}")
+            lines.append("")
+
+            if p.get("category"):
+                lines.append(f"**Category:** {p['category']}")
+                lines.append("")
+
+            if p.get("description"):
+                lines.append(f"**Description:** {p['description']}")
+                lines.append("")
+
+            if p.get("other"):
+                lines.append(f"**Other:** {p['other']}")
+                lines.append("")
+
+            if idx < len(products):
+                lines.append("")
+
+    # Section 3: Infrastructure
+    infra_has_content = any([
+        infrastructure.get("factory_area_sqft"),
+        infrastructure.get("number_of_machines"),
+        infrastructure.get("production_capacity"),
+        infrastructure.get("workforce_size"),
+        infrastructure.get("storage_capacity"),
+        infrastructure.get("other")
+    ])
+
+    if infra_has_content:
+        lines += [
+            "---",
+            "",
+            "## 3️⃣ Company Infrastructure",
+            "",
+        ]
+
+        if infrastructure.get("factory_area_sqft"):
+            lines.append(f"**Factory Area:** {infrastructure['factory_area_sqft']} sq ft")
+            lines.append("")
+        if infrastructure.get("number_of_machines"):
+            lines.append(f"**Number of Machines:** {infrastructure['number_of_machines']}")
+            lines.append("")
+        if infrastructure.get("production_capacity"):
+            lines.append(f"**Production Capacity:** {infrastructure['production_capacity']}")
+            lines.append("")
+        if infrastructure.get("workforce_size"):
+            lines.append(f"**Workforce Size:** {infrastructure['workforce_size']}")
+            lines.append("")
+        if infrastructure.get("storage_capacity"):
+            lines.append(f"**Storage Capacity:** {infrastructure['storage_capacity']}")
+            lines.append("")
+
+        if infrastructure.get("other"):
+            lines.append("**Additional Info:**")
+            for item in infrastructure["other"]:
+                lines.append(f"- {item}")
+            lines.append("")
+
+    # Section 4: Compliance/Certificates
+    compliance_has_content = compliance.get("certifications") or compliance.get("other")
+
+    if compliance_has_content:
+        lines += [
+            "---",
+            "",
+            "## 4️⃣ Compliance & Certificates",
+            "",
+        ]
+
+        if compliance.get("certifications"):
+            lines.append("**Certifications:**")
+            for cert in compliance["certifications"]:
+                lines.append(f"- ✅ {cert}")
+            lines.append("")
+
+        if compliance.get("other"):
+            lines.append("**Additional Info:**")
+            for item in compliance["other"]:
+                lines.append(f"- {item}")
+            lines.append("")
+
+    lines += [
+        "---",
+        "",
+        "*This profile is auto-generated from your structured data. Edit via the Profile page.*"
+    ]
+
+    return "\n".join(lines)
+
+
+def json_to_markdown_v2(profile_json: dict) -> str:
+    """Legacy converter for old profile format (backward compatibility)."""
     if not profile_json:
         return ""
 
@@ -59,237 +237,101 @@ def json_to_markdown(profile_json: dict) -> str:
     ]
 
     if about:
-        lines += [
-            "---",
-            "",
-            "## 📖 About",
-            "",
-            about,
-            "",
-        ]
+        lines += ["---", "", "## 📖 About", "", about, ""]
 
     if categories:
-        lines += [
-            "---",
-            "",
-            "## 🏷️ Product Categories",
-            "",
-        ]
+        lines += ["---", "", "## 🏷️ Product Categories", ""]
         for c in categories:
             lines.append(f"- {c}")
         lines.append("")
 
-    if products:
-        lines += [
-            "---",
-            "",
-            "## 📦 Products & Specifications",
-            "",
-        ]
-        for idx, p in enumerate(products, 1):
-            pname = p.get("name", "Product")
-            specs = p.get("specifications", {})
-            pricing = p.get("pricing", {})
-
-            # Product header
-            lines.append(f"### {idx}. {pname}")
-            lines.append("")
-
-            # Basic info
-            category = p.get("category", "")
-            target = p.get("target_gender", "")
-            if category or target:
-                lines.append("**Product Type:**")
-                if category:
-                    lines.append(f"  - Category: {category}")
-                if target:
-                    lines.append(f"  - Target: {target}")
-                lines.append("")
-
-            # Fabric & quality
-            fabric = specs.get("fabric", {})
-            gsm = specs.get("gsm", {})
-            fit = specs.get("fit", "")
-            if fabric or gsm or fit:
-                lines.append("**Fabric & Quality:**")
-                if fabric.get("type"):
-                    fabric_line = f"  - Fabric: {fabric['type']}"
-                    if fabric.get("composition"):
-                        fabric_line += f" ({fabric['composition']})"
-                    lines.append(fabric_line)
-                if fabric.get("treatment"):
-                    lines.append(f"  - Treatment: {fabric['treatment']}")
-                if gsm.get("value"):
-                    bucket = gsm.get("bucket", "")
-                    lines.append(f"  - GSM: {gsm['value']}" + (f" [{bucket} quality]" if bucket and bucket != "unknown" else ""))
-                if fit:
-                    lines.append(f"  - Fit: {fit}")
-                lines.append("")
-
-            # Style details
-            neck = specs.get("neck_type", "")
-            sleeve = specs.get("sleeve_type", "")
-            colors = specs.get("colors", [])
-            sizes = specs.get("sizes", [])
-            if neck or sleeve or colors or sizes:
-                lines.append("**Style & Options:**")
-                if neck:
-                    lines.append(f"  - Neck: {neck}")
-                if sleeve:
-                    lines.append(f"  - Sleeve: {sleeve}")
-                if colors:
-                    lines.append(f"  - Colors: {', '.join(colors[:8])}")
-                if sizes:
-                    lines.append(f"  - Sizes: {', '.join(sizes)}")
-                lines.append("")
-
-            # Pricing
-            price = pricing.get("price_per_unit")
-            moq = pricing.get("moq")
-            if price or moq:
-                lines.append("**Pricing:**")
-                if price:
-                    currency = pricing.get("currency", "INR")
-                    bucket = pricing.get("price_bucket", "")
-                    lines.append(f"  - Price: {currency} {price}/piece" + (f" [{bucket}]" if bucket and bucket != "unknown" else ""))
-                if moq:
-                    lines.append(f"  - MOQ: {moq} pieces")
-                lines.append("")
-
-            # Customization
-            printing = specs.get("printing_methods", [])
-            use_cases = p.get("use_cases", [])
-            if printing or use_cases:
-                lines.append("**Customization & Usage:**")
-                if printing:
-                    lines.append(f"  - Printing: {', '.join(printing)}")
-                if use_cases:
-                    lines.append(f"  - Use Cases: {', '.join(use_cases)}")
-                lines.append("")
-
-            # Separator between products
-            if idx < len(products):
-                lines.append("---")
-                lines.append("")
-
-    if capabilities:
-        active_caps = [k.replace("_", " ").title() for k, v in capabilities.items() if v]
-        if active_caps:
-            lines += [
-                "---",
-                "",
-                "## ⚙️ Capabilities",
-                "",
-            ]
-            for c in active_caps:
-                lines.append(f"- {c}")
-            lines.append("")
-
-    if serviceable_locations:
-        lines += [
-            "---",
-            "",
-            "## 🌍 Serviceable Locations",
-            "",
-            ", ".join(serviceable_locations),
-            "",
-        ]
-
     if certifications:
-        lines += [
-            "---",
-            "",
-            "## ✅ Certifications",
-            "",
-        ]
+        lines += ["---", "", "## ✅ Certifications", ""]
         for c in certifications:
             lines.append(f"- {c}")
         lines.append("")
 
     if payment_terms:
-        lines += [
-            "---",
-            "",
-            "## 💳 Payment Terms",
-            "",
-        ]
+        lines += ["---", "", "## 💳 Payment Terms", ""]
         for p in payment_terms:
             lines.append(f"- {p}")
         lines.append("")
 
-    lines += [
-        "---",
-        "*This profile is auto-generated from your structured data. Edit via the Profile page.*"
-    ]
+    lines += ["---", "*This profile is auto-generated from your structured data. Edit via the Profile page.*"]
 
     return "\n".join(lines)
 
 
 def gst_to_profile_json(gst_data: dict, url_profile: dict = None) -> dict:
     """
-    Convert GST data + URL-extracted profile to initial profile JSON structure.
-    This replaces the old build_profile_md for initial profile creation.
+    Convert GST data to new 4-section profile format.
+
+    Sections:
+    1. Basic Details - Company name, GST, address
+    2. Products/Services - List of products
+    3. Infrastructure - Factory details
+    4. Compliance - Certifications
     """
     url_profile = url_profile or {}
 
-    company = {
-        "trade_name": url_profile.get("trade_name") or gst_data.get("tradeNam") or gst_data.get("lgnm", ""),
-        "legal_name": gst_data.get("lgnm", ""),
-        "gstin": gst_data.get("gstin", ""),
-        "gst_status": gst_data.get("sts", "Active"),
-        "business_type": gst_data.get("ctb", ""),
-        "registration_date": gst_data.get("rgdt", ""),
-        "nature_of_business": gst_data.get("nba", []),
-    }
-
+    # Extract address data
     addr_data = gst_data.get("pradr", {}).get("addr", {})
-    location = {
+    trade_name = url_profile.get("trade_name") or gst_data.get("tradeNam") or gst_data.get("lgnm", "")
+
+    # Section 1: Basic Details (Auto-populated from GST)
+    basic_details = {
+        "company_name": trade_name,
+        "gst_number": gst_data.get("gstin", ""),
+        "address": gst_data.get("pradr", {}).get("adr", ""),
         "city": url_profile.get("city") or addr_data.get("loc", ""),
         "state": url_profile.get("state") or addr_data.get("stcd", ""),
-        "address": gst_data.get("pradr", {}).get("adr", ""),
         "pincode": addr_data.get("pncd", ""),
+        "phone": "",
+        "email": "",
+        "website": "",
+        "other": [
+            f"Legal Name: {gst_data.get('lgnm', '')}",
+            f"Business Type: {gst_data.get('ctb', '')}",
+            f"GST Status: {gst_data.get('sts', 'Active')}",
+            f"Registration Date: {gst_data.get('rgdt', '')}",
+        ]
     }
 
+    # Filter out empty other items
+    basic_details["other"] = [item for item in basic_details["other"] if item.split(": ", 1)[1].strip()]
+
+    # Section 2: Products (Empty by default, user fills in)
     products = []
     catalog = url_profile.get("product_catalog", []) or url_profile.get("products", [])
     for p in catalog:
-        specs_data = p.get("specifications", {})
-        commercials = p.get("commercials", {})
-
         product = {
             "name": p.get("product_name") or p.get("name", ""),
             "category": p.get("category", ""),
-            "target_gender": p.get("target_gender", ""),
-            "url": p.get("product_url", ""),
             "description": p.get("description", ""),
-            "specifications": {
-                "fabric": specs_data.get("fabric", {}),
-                "gsm": specs_data.get("gsm", {}),
-                "fit": specs_data.get("fit", ""),
-                "neck_type": specs_data.get("neck_type", ""),
-                "sleeve_type": specs_data.get("sleeve_type", ""),
-                "colors": specs_data.get("color", []),
-                "sizes": p.get("sizes", {}).get("available", []),
-                "printing_methods": p.get("printing_capabilities", {}).get("supported_methods", []),
-            },
-            "pricing": {
-                "price_per_unit": commercials.get("price", {}).get("value"),
-                "currency": commercials.get("price", {}).get("currency", "INR"),
-                "price_bucket": commercials.get("price", {}).get("bucket", ""),
-                "moq": commercials.get("moq", {}).get("value"),
-            },
-            "use_cases": p.get("use_cases", []),
+            "other": ""
         }
-        products.append(product)
+        if product["name"]:
+            products.append(product)
+
+    # Section 3: Infrastructure (Empty by default, user fills in)
+    infrastructure = {
+        "factory_area_sqft": "",
+        "number_of_machines": "",
+        "production_capacity": "",
+        "workforce_size": "",
+        "storage_capacity": "",
+        "other": []
+    }
+
+    # Section 4: Compliance (Empty by default, user fills in)
+    compliance = {
+        "certifications": url_profile.get("certifications", []),
+        "other": []
+    }
 
     return {
-        "company": company,
-        "location": location,
-        "about": url_profile.get("business_summary", ""),
-        "product_categories": url_profile.get("product_categories", []),
+        "basic_details": basic_details,
         "products": products,
-        "capabilities": url_profile.get("capabilities", {}),
-        "serviceable_locations": url_profile.get("serviceable_locations", []),
-        "certifications": url_profile.get("certifications", []),
-        "payment_terms": url_profile.get("payment_terms", []),
+        "infrastructure": infrastructure,
+        "compliance": compliance
     }
