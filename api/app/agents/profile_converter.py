@@ -110,6 +110,18 @@ def json_to_markdown_v4(profile_json: dict) -> str:
                 for prod in products:
                     prod_name = prod.get("name", "Product")
                     lines.append(f"- **{prod_name}**")
+
+                    # Textile-specific fields
+                    if prod.get("gsm"):
+                        lines.append(f"  - GSM: {prod['gsm']}")
+                    if prod.get("fabric_type"):
+                        lines.append(f"  - Fabric Type: {prod['fabric_type']}")
+                    if prod.get("color"):
+                        lines.append(f"  - Colors: {prod['color']}")
+                    if prod.get("size_range"):
+                        lines.append(f"  - Sizes: {prod['size_range']}")
+                    if prod.get("moq"):
+                        lines.append(f"  - MOQ: {prod['moq']}")
                     if prod.get("description"):
                         lines.append(f"  - Description: {prod['description']}")
                     if prod.get("other"):
@@ -466,6 +478,11 @@ def gst_to_profile_json(gst_data: dict, url_profile: dict = None) -> dict:
 
         product = {
             "name": p.get("product_name") or p.get("name", ""),
+            "gsm": p.get("gsm", ""),
+            "fabric_type": p.get("fabric_type", ""),
+            "color": p.get("color", ""),
+            "size_range": p.get("size_range", ""),
+            "moq": p.get("moq", ""),
             "description": p.get("description", ""),
             "other": ""
         }
