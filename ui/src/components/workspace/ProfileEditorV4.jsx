@@ -802,14 +802,14 @@ export default function ProfileEditorV4() {
       basic_details: {
         company_name: "Define Clothing Pvt Ltd",
         gst_number: "33XXXXX1234X1ZX",
-        address: "123, Industrial Area",
+        address: "123, Industrial Area, Phase 2",
         city: "Tiruppur",
         state: "Tamil Nadu",
         pincode: "641607",
         phone: "+91 9876543210",
         email: "contact@defineclothing.com",
         website: "https://defineclothing.com",
-        other: ["Established: 2015"]
+        other: ["Established: 2015", "Export License: EXP12345"]
       },
       product_categories: [
         {
@@ -819,11 +819,21 @@ export default function ProfileEditorV4() {
               name: "T-Shirt",
               gsm: "180 GSM",
               fabric_type: "Cotton",
-              color: "All colors",
+              color: "All colors available",
               size_range: "S to XXL",
               moq: "500 pieces",
-              description: "Premium quality cotton t-shirts",
-              other: "Customization available"
+              description: "Premium quality cotton t-shirts with superior stitching and finish",
+              other: "Customization available for logos and designs"
+            },
+            {
+              name: "Polo Shirt",
+              gsm: "200 GSM",
+              fabric_type: "Pique Cotton",
+              color: "Navy, Black, White, Grey",
+              size_range: "M to XXXL",
+              moq: "300 pieces",
+              description: "Professional polo shirts for corporate wear",
+              other: "Bulk orders get 10% discount"
             }
           ]
         },
@@ -833,40 +843,67 @@ export default function ProfileEditorV4() {
             {
               name: "Bed Sheets",
               gsm: "200 GSM",
-              fabric_type: "Cotton Blend",
-              color: "White, Beige, Blue",
-              size_range: "Queen, King",
+              fabric_type: "Cotton Blend (60% Cotton, 40% Polyester)",
+              color: "White, Beige, Blue, Grey",
+              size_range: "Queen, King, Super King",
               moq: "1000 pieces",
-              description: "Luxury bed sheets",
-              other: ""
+              description: "Luxury bed sheets with high thread count",
+              other: "Matching pillow covers available"
+            }
+          ]
+        },
+        {
+          name: "Accessories",
+          products: [
+            {
+              name: "Caps",
+              gsm: "",
+              fabric_type: "Canvas",
+              color: "Various",
+              size_range: "Adjustable",
+              moq: "200 pieces",
+              description: "Premium quality caps for casual and sports wear",
+              other: "Embroidery available"
             }
           ]
         }
       ],
       infrastructure_items: [
         {
-          name: "Factory A - Main Unit",
+          name: "Factory A - Main Production Unit",
           area: "25000",
           machines: "45",
           workforce: "120",
           category_capacities: [
             { category: "Apparel", capacity: "50000 pcs/month" },
-            { category: "Home Textiles", capacity: "30000 pcs/month" }
+            { category: "Home Textiles", capacity: "30000 pcs/month" },
+            { category: "Accessories", capacity: "20000 pcs/month" }
           ]
         },
         {
-          name: "Warehouse 1",
+          name: "Warehouse 1 - Central Storage",
           area: "10000",
           machines: "0",
           workforce: "15",
           category_capacities: [
-            { category: "Apparel", capacity: "Storage only" }
+            { category: "Apparel", capacity: "Storage capacity: 100,000 pcs" },
+            { category: "Home Textiles", capacity: "Storage capacity: 50,000 pcs" }
+          ]
+        },
+        {
+          name: "Dyeing Unit",
+          area: "5000",
+          machines: "8",
+          workforce: "25",
+          category_capacities: [
+            { category: "Apparel", capacity: "15000 pcs/month" },
+            { category: "Home Textiles", capacity: "10000 pcs/month" }
           ]
         }
       ],
       compliance: {
-        certifications: ["ISO 9001:2015", "GOTS Certified"],
-        other: ["Last audit: March 2024"]
+        certifications: ["ISO 9001:2015", "GOTS Certified", "OEKO-TEX Standard 100"],
+        other: ["Last audit: March 2024", "Fire safety certified", "Environmental clearance valid till 2026"]
       }
     }
 
