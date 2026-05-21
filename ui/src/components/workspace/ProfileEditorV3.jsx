@@ -342,18 +342,14 @@ export default function ProfileEditorV3() {
 
   // Section 1 Editor: Basic Details
   const BasicDetailsEditor = () => {
-    const basicDetails = formData.basic_details || profile?.basic_details || {}
+    const [localData, setLocalData] = useState(formData.basic_details || {})
 
     const updateField = (field, value) => {
-      setFormData({
-        basic_details: { ...basicDetails, [field]: value }
-      })
+      setLocalData(prev => ({ ...prev, [field]: value }))
     }
 
     const updateOther = (values) => {
-      setFormData({
-        basic_details: { ...basicDetails, other: values }
-      })
+      setLocalData(prev => ({ ...prev, other: values }))
     }
 
     return (
@@ -364,31 +360,31 @@ export default function ProfileEditorV3() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <InputField
             label="Company Name *"
-            value={basicDetails.company_name}
+            value={localData.company_name}
             onChange={(v) => updateField('company_name', v)}
             placeholder="Your company name"
           />
           <InputField
             label="GST Number *"
-            value={basicDetails.gst_number}
+            value={localData.gst_number}
             onChange={(v) => updateField('gst_number', v)}
             placeholder="33XXXXX1234X1ZX"
           />
           <InputField
             label="Phone"
-            value={basicDetails.phone}
+            value={localData.phone}
             onChange={(v) => updateField('phone', v)}
             placeholder="+91 9876543210"
           />
           <InputField
             label="Email"
-            value={basicDetails.email}
+            value={localData.email}
             onChange={(v) => updateField('email', v)}
             placeholder="contact@company.com"
           />
           <InputField
             label="Website"
-            value={basicDetails.website}
+            value={localData.website}
             onChange={(v) => updateField('website', v)}
             placeholder="https://company.com"
             fullWidth
@@ -399,25 +395,25 @@ export default function ProfileEditorV3() {
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 16 }}>
           <InputField
             label="Street Address"
-            value={basicDetails.address}
+            value={localData.address}
             onChange={(v) => updateField('address', v)}
             placeholder="123, Industrial Area"
           />
           <InputField
             label="City"
-            value={basicDetails.city}
+            value={localData.city}
             onChange={(v) => updateField('city', v)}
             placeholder="Tiruppur"
           />
           <InputField
             label="State"
-            value={basicDetails.state}
+            value={localData.state}
             onChange={(v) => updateField('state', v)}
             placeholder="Tamil Nadu"
           />
           <InputField
             label="Pincode"
-            value={basicDetails.pincode}
+            value={localData.pincode}
             onChange={(v) => updateField('pincode', v)}
             placeholder="641607"
           />
@@ -426,7 +422,7 @@ export default function ProfileEditorV3() {
         <SectionHeader title="Other Details" />
         <TagInput
           label="Additional Information"
-          values={basicDetails.other || []}
+          values={localData.other || []}
           onChange={updateOther}
           placeholder="e.g., Established: 2015, Annual Turnover: 5-10 Cr"
         />
@@ -440,7 +436,7 @@ export default function ProfileEditorV3() {
             Cancel
           </button>
           <button
-            onClick={() => handleUpdateBasicDetails(formData.basic_details)}
+            onClick={() => handleUpdateBasicDetails(localData)}
             disabled={saving}
             className="btn-primary"
             style={{ flex: 1, padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
@@ -539,18 +535,14 @@ export default function ProfileEditorV3() {
 
   // Section 3 Editor: Infrastructure
   const InfrastructureEditor = () => {
-    const infrastructure = formData.infrastructure || profile?.infrastructure || {}
+    const [localData, setLocalData] = useState(formData.infrastructure || {})
 
     const updateField = (field, value) => {
-      setFormData({
-        infrastructure: { ...infrastructure, [field]: value }
-      })
+      setLocalData(prev => ({ ...prev, [field]: value }))
     }
 
     const updateOther = (values) => {
-      setFormData({
-        infrastructure: { ...infrastructure, other: values }
-      })
+      setLocalData(prev => ({ ...prev, other: values }))
     }
 
     return (
@@ -561,31 +553,31 @@ export default function ProfileEditorV3() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <InputField
             label="Factory Area (sq ft)"
-            value={infrastructure.factory_area_sqft}
+            value={localData.factory_area_sqft}
             onChange={(v) => updateField('factory_area_sqft', v)}
             placeholder="25000"
           />
           <InputField
             label="Number of Machines"
-            value={infrastructure.number_of_machines}
+            value={localData.number_of_machines}
             onChange={(v) => updateField('number_of_machines', v)}
             placeholder="45"
           />
           <InputField
             label="Production Capacity"
-            value={infrastructure.production_capacity}
+            value={localData.production_capacity}
             onChange={(v) => updateField('production_capacity', v)}
             placeholder="50000 pieces/month"
           />
           <InputField
             label="Workforce Size"
-            value={infrastructure.workforce_size}
+            value={localData.workforce_size}
             onChange={(v) => updateField('workforce_size', v)}
             placeholder="120 employees"
           />
           <InputField
             label="Storage Capacity"
-            value={infrastructure.storage_capacity}
+            value={localData.storage_capacity}
             onChange={(v) => updateField('storage_capacity', v)}
             placeholder="10000 sq ft"
             fullWidth
@@ -595,7 +587,7 @@ export default function ProfileEditorV3() {
         <SectionHeader title="Other Infrastructure Details" />
         <TagInput
           label="Additional Information"
-          values={infrastructure.other || []}
+          values={localData.other || []}
           onChange={updateOther}
           placeholder="e.g., Backup power: 100 KVA, Quality control lab: Yes"
         />
@@ -609,7 +601,7 @@ export default function ProfileEditorV3() {
             Cancel
           </button>
           <button
-            onClick={() => handleUpdateInfrastructure(formData.infrastructure)}
+            onClick={() => handleUpdateInfrastructure(localData)}
             disabled={saving}
             className="btn-primary"
             style={{ flex: 1, padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
@@ -624,18 +616,14 @@ export default function ProfileEditorV3() {
 
   // Section 4 Editor: Compliance
   const ComplianceEditor = () => {
-    const compliance = formData.compliance || profile?.compliance || {}
+    const [localData, setLocalData] = useState(formData.compliance || { certifications: [], other: [] })
 
     const updateCertifications = (values) => {
-      setFormData({
-        compliance: { ...compliance, certifications: values }
-      })
+      setLocalData(prev => ({ ...prev, certifications: values }))
     }
 
     const updateOther = (values) => {
-      setFormData({
-        compliance: { ...compliance, other: values }
-      })
+      setLocalData(prev => ({ ...prev, other: values }))
     }
 
     return (
@@ -645,7 +633,7 @@ export default function ProfileEditorV3() {
       >
         <TagInput
           label="Certifications"
-          values={compliance.certifications || []}
+          values={localData.certifications || []}
           onChange={updateCertifications}
           placeholder="e.g., ISO 9001:2015, GOTS, OEKO-TEX"
         />
@@ -653,7 +641,7 @@ export default function ProfileEditorV3() {
         <SectionHeader title="Other Compliance Details" />
         <TagInput
           label="Additional Information"
-          values={compliance.other || []}
+          values={localData.other || []}
           onChange={updateOther}
           placeholder="e.g., Last audit: March 2024, Valid until: March 2026"
         />
@@ -667,7 +655,7 @@ export default function ProfileEditorV3() {
             Cancel
           </button>
           <button
-            onClick={() => handleUpdateCompliance(formData.compliance)}
+            onClick={() => handleUpdateCompliance(localData)}
             disabled={saving}
             className="btn-primary"
             style={{ flex: 1, padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
