@@ -613,7 +613,7 @@ export default function ProfileEditorV4() {
                           type="text"
                           value={item.capacity}
                           onChange={(e) => updateCategoryCapacity(idx, 'capacity', e.target.value)}
-                          placeholder="e.g., 50000 pcs/month"
+                          placeholder="e.g., 50000 pcs / week"
                           style={{
                             width: '100%',
                             padding: '10px 14px',
@@ -655,7 +655,7 @@ export default function ProfileEditorV4() {
                 lineHeight: 1.6
               }}>
                 💡 <strong style={{ color: '#93c5fd' }}>Tip:</strong> Same infrastructure (e.g., Factory A) can produce multiple categories with different capacities.
-                For example: Apparel - 50,000 pcs/month, Home Textiles - 30,000 pcs/month.
+                For example: Apparel - 50,000 pcs / week, Home Textiles - 30,000 pcs / week.
               </div>
             </div>
           )}
@@ -890,9 +890,9 @@ export default function ProfileEditorV4() {
           machines: "45",
           workforce: "120",
           category_capacities: [
-            { category: "Apparel", capacity: "50000 pcs/month" },
-            { category: "Home Textiles", capacity: "30000 pcs/month" },
-            { category: "Accessories", capacity: "20000 pcs/month" }
+            { category: "Apparel", capacity: "50000 pcs / week" },
+            { category: "Home Textiles", capacity: "30000 pcs / week" },
+            { category: "Accessories", capacity: "20000 pcs / week" }
           ]
         },
         {
@@ -911,8 +911,8 @@ export default function ProfileEditorV4() {
           machines: "8",
           workforce: "25",
           category_capacities: [
-            { category: "Apparel", capacity: "15000 pcs/month" },
-            { category: "Home Textiles", capacity: "10000 pcs/month" }
+            { category: "Apparel", capacity: "15000 pcs / week" },
+            { category: "Home Textiles", capacity: "10000 pcs / week" }
           ]
         }
       ],
