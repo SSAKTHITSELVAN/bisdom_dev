@@ -1,0 +1,132 @@
+================================================================================
+✅ INFRASTRUCTURE CAPACITY LABEL UPDATE
+================================================================================
+
+Date: May 21, 2026
+Commit: 26714c6
+Status: ✅ DEPLOYED
+
+================================================================================
+CHANGE SUMMARY
+================================================================================
+
+Updated all infrastructure capacity labels from "per month" to "per / week"
+
+BEFORE:
+  - Placeholder: "e.g., 50000 pcs/month"
+  - Tip example: "50,000 pcs/month"
+  - JSON examples: All used "pcs/month"
+
+AFTER:
+  - Placeholder: "e.g., 50000 pcs / week"
+  - Tip example: "50,000 pcs / week"
+  - JSON examples: All use "pcs / week"
+
+================================================================================
+LOCATIONS UPDATED
+================================================================================
+
+1. Infrastructure Form - Capacity Input Field
+   Line 616: placeholder="e.g., 50000 pcs / week"
+
+2. Infrastructure Form - Tip Section
+   Line 658: "Apparel - 50,000 pcs / week, Home Textiles - 30,000 pcs / week"
+
+3. JSON Import Template - Factory A
+   Lines 893-895:
+   - Apparel: "50000 pcs / week"
+   - Home Textiles: "30000 pcs / week"
+   - Accessories: "20000 pcs / week"
+
+4. JSON Import Template - Dyeing Unit
+   Lines 914-915:
+   - Apparel: "15000 pcs / week"
+   - Home Textiles: "10000 pcs / week"
+
+================================================================================
+RATIONALE
+================================================================================
+
+Weekly capacity is more practical for:
+✅ Short-term order planning
+✅ Quick fulfillment estimates
+✅ Weekly production schedules
+✅ Better alignment with industry practice
+
+Note: Field remains free-form text, so users can still specify:
+- "per month" if preferred
+- "per day"
+- "Storage only"
+- Any custom format
+
+================================================================================
+EXAMPLES
+================================================================================
+
+Updated Infrastructure JSON:
+{
+  "name": "Factory A - Main Production Unit",
+  "area": "25000",
+  "machines": "45",
+  "workforce": "120",
+  "category_capacities": [
+    { "category": "Apparel", capacity: "50000 pcs / week" },
+    { "category": "Home Textiles", capacity: "30000 pcs / week" },
+    { "category": "Accessories", capacity: "20000 pcs / week" }
+  ]
+}
+
+Form Placeholder:
+  [Capacity Input] → "e.g., 50000 pcs / week"
+
+Tip Text:
+  💡 Tip: Same infrastructure can produce multiple categories.
+  For example: Apparel - 50,000 pcs / week, Home Textiles - 30,000 pcs / week.
+
+================================================================================
+TESTING
+================================================================================
+
+✅ Test Steps:
+1. Go to http://3.109.70.144:5173
+2. Login as supplier
+3. Navigate to Workspace → Profile
+4. Click "Add Infrastructure"
+5. Add a category capacity
+6. ✅ Verify placeholder shows "pcs / week"
+7. Check the tip text
+8. ✅ Verify examples show "pcs / week"
+9. Click "Import JSON" → "Copy to Input"
+10. ✅ Verify all examples use "pcs / week"
+
+================================================================================
+BACKWARD COMPATIBILITY
+================================================================================
+
+✅ Existing infrastructure data unaffected
+✅ Old "per month" entries still display correctly
+✅ Field remains free-form text
+✅ Users can enter any format they prefer
+✅ No data migration required
+
+================================================================================
+DEPLOYMENT
+================================================================================
+
+Status: ✅ DEPLOYED & VERIFIED
+
+Build Output:
+  dist/index.html                   0.63 kB │ gzip:   0.37 kB
+  dist/assets/index-D7qeKTDV.css   26.02 kB │ gzip:   6.40 kB
+  dist/assets/index-DwaPTPG-.js   496.26 kB │ gzip: 137.93 kB
+  ✓ built in 1.73s
+
+Verification:
+  Frontend: http://3.109.70.144:5173 - ✅ Status 200
+  Service: bisdom-ui.service - ✅ Active (running)
+
+================================================================================
+
+✅ CHANGE DEPLOYED SUCCESSFULLY
+
+================================================================================
