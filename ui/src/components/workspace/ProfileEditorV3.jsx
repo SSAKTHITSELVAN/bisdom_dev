@@ -342,7 +342,9 @@ export default function ProfileEditorV3() {
 
   // Section 1 Editor: Basic Details
   const BasicDetailsEditor = () => {
-    const [localData, setLocalData] = useState(formData.basic_details || {})
+    // Get current data from profile (not formData which might be stale)
+    const initialData = basicDetails || {}
+    const [localData, setLocalData] = useState(initialData)
 
     const updateField = (field, value) => {
       setLocalData(prev => ({ ...prev, [field]: value }))
@@ -535,7 +537,9 @@ export default function ProfileEditorV3() {
 
   // Section 3 Editor: Infrastructure
   const InfrastructureEditor = () => {
-    const [localData, setLocalData] = useState(formData.infrastructure || {})
+    // Get current data from profile (not formData which might be stale)
+    const initialData = infrastructure || {}
+    const [localData, setLocalData] = useState(initialData)
 
     const updateField = (field, value) => {
       setLocalData(prev => ({ ...prev, [field]: value }))
@@ -616,7 +620,9 @@ export default function ProfileEditorV3() {
 
   // Section 4 Editor: Compliance
   const ComplianceEditor = () => {
-    const [localData, setLocalData] = useState(formData.compliance || { certifications: [], other: [] })
+    // Get the current compliance data from profile (not formData which might be stale)
+    const initialData = compliance || { certifications: [], other: [] }
+    const [localData, setLocalData] = useState(initialData)
 
     const updateCertifications = (values) => {
       setLocalData(prev => ({ ...prev, certifications: values }))
@@ -952,20 +958,6 @@ export default function ProfileEditorV3() {
             title="1. Basic Details"
             accent="#60a5fa"
             onEdit={() => {
-              // Ensure basic_details has proper default values
-              const basicDetailsData = basicDetails || {
-                company_name: '',
-                gst_number: '',
-                address: '',
-                city: '',
-                state: '',
-                pincode: '',
-                phone: '',
-                email: '',
-                website: '',
-                other: []
-              }
-              setFormData({ basic_details: basicDetailsData })
               setEditingSection('basic-details')
             }}
           >
@@ -975,19 +967,6 @@ export default function ProfileEditorV3() {
                 <p style={{ fontSize: 13, marginBottom: 16 }}>No basic details yet</p>
                 <button
                   onClick={() => {
-                    const basicDetailsData = basicDetails || {
-                      company_name: '',
-                      gst_number: '',
-                      address: '',
-                      city: '',
-                      state: '',
-                      pincode: '',
-                      phone: '',
-                      email: '',
-                      website: '',
-                      other: []
-                    }
-                    setFormData({ basic_details: basicDetailsData })
                     setEditingSection('basic-details')
                   }}
                   className="btn-primary"
@@ -1115,16 +1094,6 @@ export default function ProfileEditorV3() {
             title="3. Company Infrastructure"
             accent="#f59e0b"
             onEdit={() => {
-              // Ensure infrastructure has proper default values
-              const infrastructureData = infrastructure || {
-                factory_area_sqft: '',
-                number_of_machines: '',
-                production_capacity: '',
-                workforce_size: '',
-                storage_capacity: '',
-                other: []
-              }
-              setFormData({ infrastructure: infrastructureData })
               setEditingSection('infrastructure')
             }}
           >
@@ -1134,15 +1103,6 @@ export default function ProfileEditorV3() {
                 <p style={{ fontSize: 13, marginBottom: 16 }}>No infrastructure details yet</p>
                 <button
                   onClick={() => {
-                    const infrastructureData = infrastructure || {
-                      factory_area_sqft: '',
-                      number_of_machines: '',
-                      production_capacity: '',
-                      workforce_size: '',
-                      storage_capacity: '',
-                      other: []
-                    }
-                    setFormData({ infrastructure: infrastructureData })
                     setEditingSection('infrastructure')
                   }}
                   className="btn-primary"
@@ -1179,9 +1139,6 @@ export default function ProfileEditorV3() {
             title="4. Compliance & Certificates"
             accent="#8b5cf6"
             onEdit={() => {
-              // Ensure compliance has proper default values
-              const complianceData = compliance || { certifications: [], other: [] }
-              setFormData({ compliance: complianceData })
               setEditingSection('compliance')
             }}
           >
@@ -1191,8 +1148,6 @@ export default function ProfileEditorV3() {
                 <p style={{ fontSize: 13, marginBottom: 16 }}>No certifications yet</p>
                 <button
                   onClick={() => {
-                    const complianceData = { certifications: [], other: [] }
-                    setFormData({ compliance: complianceData })
                     setEditingSection('compliance')
                   }}
                   className="btn-primary"
