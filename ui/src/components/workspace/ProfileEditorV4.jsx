@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { getConfig, updateConfig } from '@/api/config'
 import Spinner from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
@@ -8,7 +8,13 @@ import {
 } from 'lucide-react'
 
 /**
- * Profile V4 - Enhanced with individual product controls and textile fields
+ * Profile V4 - Fixed input disappearing issue
+ *
+ * Root cause: Modal components were remounting on parent re-renders,
+ * causing useState to reinitialize and lose user input.
+ *
+ * Fix: Use stable modal instances that don't remount, and properly
+ * initialize state only once when modal opens.
  */
 
 export default function ProfileEditorV4() {
@@ -67,44 +73,58 @@ export default function ProfileEditorV4() {
     toast.success('Profile refreshed')
   }
 
+  // Save without updating local profile state immediately
   const saveProfile = async (updatedProfile) => {
     setSaving(true)
     try {
       await updateConfig({ profile: updatedProfile })
-      setProfile(updatedProfile)
+      // DON'T update profile here to prevent modal remount
+      // setProfile(updatedProfile) - This causes the issue!
       toast.success('Saved successfully')
+      return true
     } catch (error) {
       toast.error('Failed to save')
+      return false
     } finally {
       setSaving(false)
     }
   }
 
   const handleUpdateBasicDetails = async (data) => {
-    await saveProfile({ ...profile, basic_details: data })
-    setEditingSection(null)
+    const success = await saveProfile({ ...profile, basic_details: data })
+    if (success) {
+      // Update profile only after closing modal
+      setProfile(prev => ({ ...prev, basic_details: data }))
+      setEditingSection(null)
+    }
   }
 
-  const handleSaveCategory = (categoryData, categoryIndex = null) => {
+  const handleSaveCategory = async (categoryData, categoryIndex = null) => {
     const categories = [...(profile?.product_categories || [])]
     if (categoryIndex !== null) {
       categories[categoryIndex] = categoryData
     } else {
       categories.push(categoryData)
     }
-    saveProfile({ ...profile, product_categories: categories })
-    setEditingSection(null)
-    setEditingItem(null)
-  }
-
-  const handleDeleteCategory = (index) => {
-    if (confirm('Delete this category and all its products?')) {
-      const categories = (profile?.product_categories || []).filter((_, i) => i !== index)
-      saveProfile({ ...profile, product_categories: categories })
+    const success = await saveProfile({ ...profile, product_categories: categories })
+    if (success) {
+      setProfile(prev => ({ ...prev, product_categories: categories }))
+      setEditingSection(null)
+      setEditingItem(null)
     }
   }
 
-  const handleSaveProduct = (productData, categoryIndex, productIndex = null) => {
+  const handleDeleteCategory = async (index) => {
+    if (confirm('Delete this category and all its products?')) {
+      const categories = (profile?.product_categories || []).filter((_, i) => i !== index)
+      const success = await saveProfile({ ...profile, product_categories: categories })
+      if (success) {
+        setProfile(prev => ({ ...prev, product_categories: categories }))
+      }
+    }
+  }
+
+  const handleSaveProduct = async (productData, categoryIndex, productIndex = null) => {
     const categories = [...(profile?.product_categories || [])]
     const category = { ...categories[categoryIndex] }
 
@@ -115,43 +135,58 @@ export default function ProfileEditorV4() {
     }
 
     categories[categoryIndex] = category
-    saveProfile({ ...profile, product_categories: categories })
-    setEditingSection(null)
-    setEditingItem(null)
+    const success = await saveProfile({ ...profile, product_categories: categories })
+    if (success) {
+      setProfile(prev => ({ ...prev, product_categories: categories }))
+      setEditingSection(null)
+      setEditingItem(null)
+    }
   }
 
-  const handleDeleteProduct = (categoryIndex, productIndex) => {
+  const handleDeleteProduct = async (categoryIndex, productIndex) => {
     if (confirm('Delete this product?')) {
       const categories = [...(profile?.product_categories || [])]
       const category = { ...categories[categoryIndex] }
       category.products = category.products.filter((_, i) => i !== productIndex)
       categories[categoryIndex] = category
-      saveProfile({ ...profile, product_categories: categories })
+      const success = await saveProfile({ ...profile, product_categories: categories })
+      if (success) {
+        setProfile(prev => ({ ...prev, product_categories: categories }))
+      }
     }
   }
 
-  const handleSaveInfrastructure = (infraData, index = null) => {
+  const handleSaveInfrastructure = async (infraData, index = null) => {
     const items = [...(profile?.infrastructure_items || [])]
     if (index !== null) {
       items[index] = infraData
     } else {
       items.push(infraData)
     }
-    saveProfile({ ...profile, infrastructure_items: items })
-    setEditingSection(null)
-    setEditingItem(null)
+    const success = await saveProfile({ ...profile, infrastructure_items: items })
+    if (success) {
+      setProfile(prev => ({ ...prev, infrastructure_items: items }))
+      setEditingSection(null)
+      setEditingItem(null)
+    }
   }
 
-  const handleDeleteInfrastructure = (index) => {
+  const handleDeleteInfrastructure = async (index) => {
     if (confirm('Delete this infrastructure?')) {
       const items = (profile?.infrastructure_items || []).filter((_, i) => i !== index)
-      saveProfile({ ...profile, infrastructure_items: items })
+      const success = await saveProfile({ ...profile, infrastructure_items: items })
+      if (success) {
+        setProfile(prev => ({ ...prev, infrastructure_items: items }))
+      }
     }
   }
 
   const handleUpdateCompliance = async (data) => {
-    await saveProfile({ ...profile, compliance: data })
-    setEditingSection(null)
+    const success = await saveProfile({ ...profile, compliance: data })
+    if (success) {
+      setProfile(prev => ({ ...prev, compliance: data }))
+      setEditingSection(null)
+    }
   }
 
   const handleImportJSON = () => {
@@ -247,17 +282,16 @@ export default function ProfileEditorV4() {
     )
   }
 
-  // Basic Details Editor
-  const BasicDetailsEditor = () => {
-    const initialData = profile?.basic_details || {}
+  // Basic Details Editor - Use key prop to control mounting
+  const BasicDetailsEditor = ({ initialData, onSave, onClose }) => {
     const [localData, setLocalData] = useState(initialData)
 
     return (
       <Modal
         title="Edit Basic Details"
         accent="#60a5fa"
-        onClose={() => setEditingSection(null)}
-        onSave={() => handleUpdateBasicDetails(localData)}
+        onClose={onClose}
+        onSave={() => onSave(localData)}
         saving={saving}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -281,21 +315,16 @@ export default function ProfileEditorV4() {
     )
   }
 
-  // Category Name Editor (Just edit category name)
-  const CategoryNameEditor = ({ category, categoryIndex }) => {
-    const [name, setName] = useState(category?.name || '')
+  // Category Name Editor
+  const CategoryNameEditor = ({ initialName, onSave, onClose, isNew }) => {
+    const [name, setName] = useState(initialName || '')
 
     return (
       <Modal
-        title={categoryIndex !== null ? "Edit Category Name" : "Add Category"}
+        title={isNew ? "Add Category" : "Edit Category Name"}
         accent="#10b981"
-        onClose={() => { setEditingSection(null); setEditingItem(null) }}
-        onSave={() => {
-          const updatedCategory = categoryIndex !== null
-            ? { ...category, name }
-            : { name, products: [] }
-          handleSaveCategory(updatedCategory, categoryIndex)
-        }}
+        onClose={onClose}
+        onSave={() => onSave(name)}
         saving={saving}
         size="small"
       >
@@ -309,9 +338,9 @@ export default function ProfileEditorV4() {
     )
   }
 
-  // Product Editor (Individual product with textile fields)
-  const ProductEditor = ({ product, categoryIndex, productIndex }) => {
-    const [localData, setLocalData] = useState(product || {
+  // Product Editor
+  const ProductEditor = ({ initialProduct, onSave, onClose, isNew }) => {
+    const [localData, setLocalData] = useState(initialProduct || {
       name: '',
       gsm: '',
       fabric_type: '',
@@ -324,10 +353,10 @@ export default function ProfileEditorV4() {
 
     return (
       <Modal
-        title={productIndex !== null ? "Edit Product" : "Add Product"}
+        title={isNew ? "Add Product" : "Edit Product"}
         accent="#10b981"
-        onClose={() => { setEditingSection(null); setEditingItem(null) }}
-        onSave={() => handleSaveProduct(localData, categoryIndex, productIndex)}
+        onClose={onClose}
+        onSave={() => onSave(localData)}
         saving={saving}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -408,9 +437,8 @@ export default function ProfileEditorV4() {
   }
 
   // Infrastructure Editor
-  const InfrastructureEditor = ({ item, itemIndex }) => {
-    const availableCategories = (profile?.product_categories || []).map(c => c.name).filter(n => n)
-    const [localData, setLocalData] = useState(item || {
+  const InfrastructureEditor = ({ initialItem, onSave, onClose, isNew, availableCategories }) => {
+    const [localData, setLocalData] = useState(initialItem || {
       name: '',
       details: { area: '', machines: '', capacity: '', workforce: '' },
       tagged_categories: []
@@ -433,10 +461,10 @@ export default function ProfileEditorV4() {
 
     return (
       <Modal
-        title={itemIndex !== null ? "Edit Infrastructure" : "Add Infrastructure"}
+        title={isNew ? "Add Infrastructure" : "Edit Infrastructure"}
         accent="#f59e0b"
-        onClose={() => { setEditingSection(null); setEditingItem(null) }}
-        onSave={() => handleSaveInfrastructure(localData, itemIndex)}
+        onClose={onClose}
+        onSave={() => onSave(localData)}
         saving={saving}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -525,16 +553,15 @@ export default function ProfileEditorV4() {
   }
 
   // Compliance Editor
-  const ComplianceEditor = () => {
-    const initialData = profile?.compliance || { certifications: [], other: [] }
+  const ComplianceEditor = ({ initialData, onSave, onClose }) => {
     const [localData, setLocalData] = useState(initialData)
 
     return (
       <Modal
         title="Edit Compliance & Certificates"
         accent="#8b5cf6"
-        onClose={() => setEditingSection(null)}
-        onSave={() => handleUpdateCompliance(localData)}
+        onClose={onClose}
+        onSave={() => onSave(localData)}
         saving={saving}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -854,6 +881,12 @@ export default function ProfileEditorV4() {
   const productCategories = profile?.product_categories || []
   const infrastructureItems = profile?.infrastructure_items || []
   const compliance = profile?.compliance || { certifications: [], other: [] }
+
+  // Compute available categories for infrastructure tagging
+  const availableCategories = useMemo(() =>
+    productCategories.map(c => c.name).filter(n => n),
+    [productCategories]
+  )
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0f172a', overflow: 'hidden' }}>
@@ -1381,28 +1414,56 @@ export default function ProfileEditorV4() {
         </div>
       </div>
 
-      {/* Modals */}
-      {editingSection === 'basic-details' && <BasicDetailsEditor />}
+      {/* Modals - Use key prop based on editingSection to prevent remounting issues */}
+      {editingSection === 'basic-details' && (
+        <BasicDetailsEditor
+          key="basic-details"
+          initialData={basicDetails}
+          onSave={handleUpdateBasicDetails}
+          onClose={() => setEditingSection(null)}
+        />
+      )}
       {(editingSection === 'add-category' || editingSection === 'edit-category') && (
         <CategoryNameEditor
-          category={editingItem?.data}
-          categoryIndex={editingItem?.index ?? null}
+          key={`${editingSection}-${editingItem?.index}`}
+          initialName={editingItem?.data?.name}
+          isNew={editingSection === 'add-category'}
+          onSave={(name) => {
+            const categoryData = editingItem?.data
+              ? { ...editingItem.data, name }
+              : { name, products: [] }
+            handleSaveCategory(categoryData, editingItem?.index ?? null)
+          }}
+          onClose={() => { setEditingSection(null); setEditingItem(null) }}
         />
       )}
       {(editingSection === 'add-product' || editingSection === 'edit-product') && (
         <ProductEditor
-          product={editingItem?.data}
-          categoryIndex={editingItem?.categoryIndex}
-          productIndex={editingItem?.productIndex ?? null}
+          key={`${editingSection}-${editingItem?.categoryIndex}-${editingItem?.productIndex}`}
+          initialProduct={editingItem?.data}
+          isNew={editingSection === 'add-product'}
+          onSave={(product) => handleSaveProduct(product, editingItem?.categoryIndex, editingItem?.productIndex ?? null)}
+          onClose={() => { setEditingSection(null); setEditingItem(null) }}
         />
       )}
       {(editingSection === 'add-infrastructure' || editingSection === 'edit-infrastructure') && (
         <InfrastructureEditor
-          item={editingItem?.data}
-          itemIndex={editingItem?.index ?? null}
+          key={`${editingSection}-${editingItem?.index}`}
+          initialItem={editingItem?.data}
+          isNew={editingSection === 'add-infrastructure'}
+          availableCategories={availableCategories}
+          onSave={(infra) => handleSaveInfrastructure(infra, editingItem?.index ?? null)}
+          onClose={() => { setEditingSection(null); setEditingItem(null) }}
         />
       )}
-      {editingSection === 'compliance' && <ComplianceEditor />}
+      {editingSection === 'compliance' && (
+        <ComplianceEditor
+          key="compliance"
+          initialData={compliance}
+          onSave={handleUpdateCompliance}
+          onClose={() => setEditingSection(null)}
+        />
+      )}
       {showImportModal && <ImportModal />}
     </div>
   )
