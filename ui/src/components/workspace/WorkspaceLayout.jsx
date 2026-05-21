@@ -19,7 +19,7 @@ export default function WorkspaceLayout() {
     window.addEventListener('hashchange', onHash)
     syncFromHash() // sync on mount
     return () => window.removeEventListener('hashchange', onHash)
-  }, [])
+  }, [syncFromHash])
 
   useEffect(() => {
     const load = async () => {
@@ -38,7 +38,8 @@ export default function WorkspaceLayout() {
       setLoading(false)
     }
     load()
-    const interval = setInterval(load, 15000)
+    // Poll every 30 seconds (increased from 15s to reduce server load)
+    const interval = setInterval(load, 30000)
     return () => clearInterval(interval)
   }, [refreshKey])
 
