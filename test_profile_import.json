@@ -1,0 +1,90 @@
+{
+  "basic_details": {
+    "company_name": "Test Textiles Ltd",
+    "gst_number": "33AAAAA0000A1Z5",
+    "address": "456 Test Street, Industrial Zone",
+    "city": "Coimbatore",
+    "state": "Tamil Nadu",
+    "pincode": "641001",
+    "phone": "+91 9999999999",
+    "email": "test@testtextiles.com",
+    "website": "https://testtextiles.com",
+    "other": ["Founded: 2020", "ISO Certified"]
+  },
+  "product_categories": [
+    {
+      "name": "Knitted Fabrics",
+      "products": [
+        {
+          "name": "Jersey Fabric",
+          "gsm": "160 GSM",
+          "fabric_type": "Single Jersey Cotton",
+          "color": "White, Black, Navy, Grey",
+          "size_range": "Full Width Rolls",
+          "moq": "1000 meters",
+          "description": "Premium single jersey cotton fabric suitable for t-shirts and casual wear",
+          "other": "Available in custom colors with minimum order"
+        },
+        {
+          "name": "Rib Fabric",
+          "gsm": "220 GSM",
+          "fabric_type": "1x1 Rib Cotton",
+          "color": "Various",
+          "size_range": "Tubular and Open Width",
+          "moq": "500 meters",
+          "description": "High quality rib fabric for collars and cuffs",
+          "other": "Perfect stretch and recovery"
+        }
+      ]
+    },
+    {
+      "name": "Woven Fabrics",
+      "products": [
+        {
+          "name": "Poplin Fabric",
+          "gsm": "120 GSM",
+          "fabric_type": "Cotton Poplin",
+          "color": "Solid colors and prints",
+          "size_range": "58 inches width",
+          "moq": "2000 meters",
+          "description": "Lightweight poplin for shirts and dresses",
+          "other": "Mercerized finish available"
+        }
+      ]
+    }
+  ],
+  "infrastructure_items": [
+    {
+      "name": "Main Knitting Facility",
+      "area": "30000",
+      "machines": "60",
+      "workforce": "150",
+      "category_capacities": [
+        { "category": "Knitted Fabrics", "capacity": "80000 meters/month" }
+      ]
+    },
+    {
+      "name": "Weaving Unit",
+      "area": "20000",
+      "machines": "35",
+      "workforce": "90",
+      "category_capacities": [
+        { "category": "Woven Fabrics", "capacity": "50000 meters/month" }
+      ]
+    },
+    {
+      "name": "Processing & Dyeing",
+      "area": "15000",
+      "machines": "20",
+      "workforce": "60",
+      "category_capacities": [
+        { "category": "Knitted Fabrics", "capacity": "40000 meters/month" },
+        { "category": "Woven Fabrics", "capacity": "30000 meters/month" }
+      ]
+    }
+  ],
+  "compliance": {
+    "certifications": ["ISO 9001:2015", "OEKO-TEX Standard 100", "GOTS", "BCI Cotton"],
+    "other": ["Green factory certified", "Last audit: April 2024", "Zero discharge facility"]
+  }
+}
