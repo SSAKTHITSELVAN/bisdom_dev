@@ -189,14 +189,27 @@ export default function ProfileEditorV4() {
     }
   }
 
-  const handleImportJSON = () => {
+  const handleImportJSON = async () => {
     try {
       const imported = JSON.parse(jsonInput)
-      setProfile(imported)
-      setShowImportModal(false)
-      toast.success('Profile imported')
+
+      // Save to backend first
+      const success = await saveProfile(imported)
+
+      if (success) {
+        // Update local state after successful save
+        setProfile(imported)
+        setShowImportModal(false)
+        setJsonInput('') // Clear input after successful import
+        toast.success('Profile imported and saved')
+      }
     } catch (error) {
-      toast.error('Invalid JSON')
+      if (error instanceof SyntaxError) {
+        toast.error('Invalid JSON format')
+      } else {
+        toast.error('Failed to import profile')
+      }
+      console.error('Import error:', error)
     }
   }
 

@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional, Any
+import logging
 from app.db.base import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
@@ -11,6 +12,7 @@ from app.models.user_config import UserConfig
 from app.agents.config_agent import DEFAULT_BUYER_SETTINGS, DEFAULT_SELLER_SETTINGS
 from app.agents.profile_converter import json_to_markdown
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/config", tags=["User Config"])
 
 
@@ -51,7 +53,7 @@ async def get_config(
     cfg = await get_or_create_config(current_user.id, db)
 
     # Return profile_json if available, otherwise fall back to empty structure
-    profile_json = cfg.profile_json if hasattr(cfg, 'profile_json') and cfg.profile_json else {}
+    profile_json = cfg.profile_json if cfg.profile_json else {}
 
     # Auto-generate markdown from JSON
     profile_md = json_to_markdown(profile_json) if profile_json else (cfg.profile_md or "")
@@ -74,13 +76,15 @@ async def update_config(
 
     # Update profile_json if provided (NEW)
     if request.profile is not None:
-        if hasattr(cfg, 'profile_json'):
-            cfg.profile_json = request.profile
+        logger.info(f"[CONFIG] User #{current_user.id}: updating profile_json")
+        cfg.profile_json = request.profile
         # Auto-generate markdown from JSON
         cfg.profile_md = json_to_markdown(request.profile)
+        logger.info(f"[CONFIG] User #{current_user.id}: profile_json saved with {len(request.profile.get('product_categories', []))} categories")
 
     # Legacy: direct markdown update (DEPRECATED)
     elif request.profile_md is not None:
+        logger.warning(f"[CONFIG] User #{current_user.id}: using deprecated profile_md update")
         cfg.profile_md = request.profile_md
 
     if request.buyer_settings_md is not None:
@@ -90,9 +94,10 @@ async def update_config(
 
     await db.flush()
     await db.commit()
+    logger.info(f"[CONFIG] User #{current_user.id}: config committed to database")
 
     # Return updated data
-    profile_json = cfg.profile_json if hasattr(cfg, 'profile_json') and cfg.profile_json else {}
+    profile_json = cfg.profile_json if cfg.profile_json else {}
     profile_md = json_to_markdown(profile_json) if profile_json else cfg.profile_md
 
     return ConfigResponse(
