@@ -548,6 +548,45 @@ async def rematch_requirement(
         raise HTTPException(status_code=500, detail=f"Rematch failed: {str(e)}")
 
 
+@router.post("/rematch-supplier/{supplier_id}")
+async def rematch_supplier(
+    supplier_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_admin_token),
+):
+    """
+    Manually trigger rematching for a specific supplier.
+    Recalculates match scores for all open requirements against this supplier's updated profile.
+
+    Use this when:
+    - A supplier updates their profile and you want to see updated matches immediately
+    - Testing the rematching functionality
+    - Debugging match score issues
+    """
+    from app.services.rematch_service import rematch_all_requirements_for_supplier
+
+    try:
+        logger.info(f"[ADMIN] Manual rematch triggered for supplier #{supplier_id}")
+
+        # Run rematching
+        result = await rematch_all_requirements_for_supplier(supplier_id, db)
+
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+
+        return {
+            "success": True,
+            "supplier_id": supplier_id,
+            **result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[ADMIN] Error in supplier rematch: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Rematch failed: {str(e)}")
+
+
 @router.post("/recalculate-scores")
 async def recalculate_all_scores(
     db: AsyncSession = Depends(get_db),
