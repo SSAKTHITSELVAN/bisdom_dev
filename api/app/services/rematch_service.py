@@ -1,6 +1,8 @@
 """
 Rematch Service - Recalculates match scores when supplier profiles are updated.
 Runs in background to avoid blocking profile update requests.
+
+Uses HYBRID matching algorithm for better accuracy.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,7 +11,8 @@ from app.models.profile import AgenticProfile
 from app.models.requirement import Requirement
 from app.models.lead import Lead
 from app.models.user_config import UserConfig
-from app.services.text_matching import calculate_enhanced_match_score
+from app.services.text_matching import calculate_enhanced_match_score, calculate_text_similarity, build_requirement_text, build_profile_text
+from app.services.hybrid_matching import calculate_hybrid_match_score
 import logging
 
 logger = logging.getLogger(__name__)
@@ -112,13 +115,20 @@ async def rematch_all_requirements_for_supplier(
                 )
                 existing_lead = lead_result.scalar_one_or_none()
 
-                # Calculate new score with updated profile
-                fit_score, match_reasons = calculate_enhanced_match_score(
-                    requirement=_requirement_to_dict(req),
-                    profile_md=profile_md,
+                # Calculate new score with HYBRID algorithm
+                req_dict = _requirement_to_dict(req)
+
+                # First get TF-IDF score (for hybrid algorithm)
+                req_text = build_requirement_text(req_dict)
+                profile_text = build_profile_text(profile_md, location, supplier_profile.product_categories)
+                tfidf_score = calculate_text_similarity(req_text, profile_text, use_tfidf=True)
+
+                # Then use hybrid algorithm (combines product matching, keywords, price/MOQ, TF-IDF)
+                fit_score, match_reasons = calculate_hybrid_match_score(
+                    requirement=req_dict,
+                    profile_json=user_config.profile_json if user_config else {},
                     location=location,
-                    categories=supplier_profile.product_categories,
-                    pricing_available=bool(supplier_profile.pricing_bands)
+                    tfidf_score=tfidf_score
                 )
 
                 logger.info(f"[REMATCH] Req #{req.id}: calculated score = {fit_score:.1f}%")

@@ -1,7 +1,7 @@
 """
 Matching Service — matches confirmed buyer requirements against supplier profiles.
 Creates Lead records for each match, then initiates agent conversations.
-Uses TF-IDF text similarity for better matching.
+Uses HYBRID matching algorithm combining product name matching, keywords, price/MOQ, and TF-IDF.
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,7 +10,8 @@ from app.models.profile import AgenticProfile
 from app.models.requirement import Requirement
 from app.models.lead import Lead
 from app.models.user_config import UserConfig
-from app.services.text_matching import calculate_enhanced_match_score
+from app.services.text_matching import calculate_enhanced_match_score, calculate_text_similarity, build_requirement_text, build_profile_text
+from app.services.hybrid_matching import calculate_hybrid_match_score
 import asyncio
 import logging
 
@@ -88,13 +89,18 @@ async def _create_lead(
         elif supplier_profile.city:
             location = supplier_profile.city
 
-        # Calculate enhanced fit score using TF-IDF
-        fit_score, match_reasons = calculate_enhanced_match_score(
+        # Calculate fit score using HYBRID algorithm
+        # First get TF-IDF score (for hybrid algorithm)
+        req_text = build_requirement_text(requirement_dict)
+        profile_text = build_profile_text(profile_md, location, supplier_profile.product_categories)
+        tfidf_score = calculate_text_similarity(req_text, profile_text, use_tfidf=True)
+
+        # Then use hybrid algorithm (combines product matching, keywords, price/MOQ, TF-IDF)
+        fit_score, match_reasons = calculate_hybrid_match_score(
             requirement=requirement_dict,
-            profile_md=profile_md,
+            profile_json=user_config.profile_json if user_config else {},
             location=location,
-            categories=supplier_profile.product_categories,
-            pricing_available=bool(supplier_profile.pricing_bands)
+            tfidf_score=tfidf_score
         )
 
         # Skip if score too low
