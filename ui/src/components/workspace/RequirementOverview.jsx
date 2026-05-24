@@ -1,9 +1,6 @@
-import { useState } from 'react'
 import { useWorkspaceStore } from '@/store/workspaceStore'
-import { setExpiry, expireReq } from '@/api/expiry'
 import StatusBadge from '@/components/ui/StatusBadge'
-import toast from 'react-hot-toast'
-import { Bot, Package, TrendingUp, CheckCircle, AlertTriangle, Clock, XCircle } from 'lucide-react'
+import { Bot, Package, TrendingUp, CheckCircle, AlertTriangle } from 'lucide-react'
 
 function LeadCard({ lead, onClick }) {
   const needsInput = lead.ai_paused_for_buyer
@@ -65,10 +62,6 @@ function LeadCard({ lead, onClick }) {
 
 export default function RequirementOverview({ req, leads = [] }) {
   const { goChat, goGeneralChat } = useWorkspaceStore()
-  const [showExpiry, setShowExpiry] = useState(false)
-  const [expiryDate, setExpiryDate] = useState(
-    req?.expires_at ? new Date(req.expires_at).toISOString().split('T')[0] : ''
-  )
 
   if (!req) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:'#0a1628' }}>
@@ -82,21 +75,6 @@ export default function RequirementOverview({ req, leads = [] }) {
   const active   = leads.filter(l => ['agent_initiated','negotiating','renegotiating'].includes(l.status))
   const needsYou = leads.filter(l => l.ai_paused_for_buyer)
   const closed   = leads.filter(l => l.status === 'deal_closed')
-
-  const handleSetExpiry = async () => {
-    try {
-      await setExpiry({ requirement_id: req.id, expires_at: expiryDate ? new Date(expiryDate).toISOString() : null })
-      toast.success('Expiry set')
-      setShowExpiry(false)
-    } catch { toast.error('Failed to set expiry') }
-  }
-
-  const handleClose = async () => {
-    try {
-      await expireReq(req.id)
-      toast.success('Requirement closed')
-    } catch { toast.error('Failed') }
-  }
 
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#0a1628', overflow:'hidden' }}>
@@ -143,26 +121,7 @@ export default function RequirementOverview({ req, leads = [] }) {
             style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'rgba(96,165,250,0.1)', border:'1px solid rgba(96,165,250,0.2)', borderRadius:8, cursor:'pointer', fontFamily:'Montserrat,sans-serif', fontSize:12, fontWeight:600, color:'#60a5fa' }}>
             <Bot size={13}/> Ask AI about this
           </button>
-          <button onClick={() => setShowExpiry(p => !p)}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, cursor:'pointer', fontFamily:'Montserrat,sans-serif', fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.6)' }}>
-            <Clock size={13}/> {req.expires_at ? `Expires ${new Date(req.expires_at).toLocaleDateString()}` : 'Set Expiry'}
-          </button>
-          {!req.is_expired && (
-            <button onClick={handleClose}
-              style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, cursor:'pointer', fontFamily:'Montserrat,sans-serif', fontSize:12, fontWeight:600, color:'#f87171' }}>
-              <XCircle size={13}/> Close Requirement
-            </button>
-          )}
         </div>
-
-        {showExpiry && (
-          <div style={{ marginTop:10, display:'flex', gap:8, alignItems:'center' }}>
-            <input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}
-              style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:8, color:'#fff', padding:'7px 12px', fontFamily:'Montserrat,sans-serif', fontSize:12, outline:'none' }}/>
-            <button onClick={handleSetExpiry} className="btn-primary" style={{ width:'auto', padding:'7px 16px', fontSize:12 }}>Set</button>
-            <button onClick={() => setShowExpiry(false)} className="btn-ghost" style={{ fontSize:12, padding:'7px 12px' }}>Cancel</button>
-          </div>
-        )}
       </div>
 
       {/* Seller list */}
