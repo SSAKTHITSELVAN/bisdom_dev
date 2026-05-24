@@ -31,18 +31,30 @@ async def match_requirement_to_suppliers(
     - Hard SQL filtering (product type, material, budget, MOQ)
     - Semantic embeddings (MiniLM)
     - Weighted scoring (semantic 35%, material 25%, gsm 15%, price 10%, size 10%, cert 5%)
+
+    FALLBACK: If no preprocessed products exist, falls back to old matching.
     """
     logger.info(f"[MATCH] Starting efficient matching for requirement #{requirement.id} ({requirement.product})")
+
+    # Check if supplier_products table has data
+    from app.models.supplier_product import SupplierProduct
+    from sqlalchemy import func
+
+    count_result = await db.execute(select(func.count(SupplierProduct.id)))
+    product_count = count_result.scalar()
+
+    if product_count == 0:
+        logger.warning(f"[MATCH] No preprocessed products found, falling back to old matching algorithm")
+        # Fall back to old matching using profile_md
+        return await _match_using_legacy_algorithm(requirement, db)
 
     # Use new efficient matching algorithm
     top_matches = await get_top_supplier_matches(requirement, db, limit=20)
 
     if not top_matches:
-        logger.warning(f"[MATCH] No matches found for requirement #{requirement.id}")
-        requirement.enrichment_status = "matched"
-        requirement.matched_supplier_count = 0
-        await db.flush()
-        return []
+        logger.warning(f"[MATCH] No matches found with new algorithm for requirement #{requirement.id}")
+        logger.info(f"[MATCH] Trying fallback to legacy matching...")
+        return await _match_using_legacy_algorithm(requirement, db)
 
     logger.info(f"[MATCH] Found {len(top_matches)} supplier matches above {MINIMUM_FIT_SCORE}% threshold")
 
@@ -91,28 +103,111 @@ async def match_requirement_to_suppliers(
     return leads_created
 
 
-# Legacy functions - kept for backward compatibility but no longer used
+# Fallback to legacy matching if no preprocessed products
 
-async def _create_lead_legacy(
-    supplier_profile: AgenticProfile,
-    requirement_dict: dict,
-    requirement: Requirement,
-    db: AsyncSession,
-) -> Lead | None:
+async def _match_using_legacy_algorithm(requirement: Requirement, db: AsyncSession) -> List[Lead]:
     """
-    DEPRECATED: Old lead creation using TF-IDF and hybrid matching.
-    Kept for reference only. Use match_requirement_to_suppliers() instead.
+    Fallback matching using old TF-IDF and hybrid algorithm.
+    Used when supplier_products table is empty or new algorithm finds no matches.
     """
-    logger.warning("[MATCH] Using deprecated _create_lead_legacy function")
-    return None
+    from app.services.text_matching import calculate_text_similarity, build_requirement_text, build_profile_text
+    from app.services.hybrid_matching import calculate_hybrid_match_score
 
+    logger.info("[MATCH-LEGACY] Using legacy TF-IDF matching algorithm")
 
-def _calculate_basic_fit_legacy(requirement: dict, profile: AgenticProfile) -> float:
-    """
-    DEPRECATED: Old rule-based fit score.
-    New system uses efficient_matching with embeddings.
-    """
-    return 0.0
+    # Fetch ALL profiles except the buyer
+    result = await db.execute(
+        select(AgenticProfile).where(
+            AgenticProfile.user_id != requirement.buyer_id,
+        )
+    )
+    supplier_profiles = result.scalars().all()
+
+    logger.info(f"[MATCH-LEGACY] Found {len(supplier_profiles)} potential suppliers")
+
+    if not supplier_profiles:
+        requirement.enrichment_status = "matched"
+        requirement.matched_supplier_count = 0
+        await db.flush()
+        return []
+
+    req_dict = _requirement_to_dict(requirement)
+    leads_created = []
+
+    for profile in supplier_profiles:
+        try:
+            # Get supplier's profile markdown
+            config_result = await db.execute(
+                select(UserConfig).where(UserConfig.user_id == profile.user_id)
+            )
+            user_config = config_result.scalar_one_or_none()
+            profile_md = user_config.profile_md if user_config else ""
+
+            if not profile_md:
+                continue
+
+            # Build location string
+            location = None
+            if profile.city and profile.state:
+                location = f"{profile.city}, {profile.state}"
+            elif profile.state:
+                location = profile.state
+            elif profile.city:
+                location = profile.city
+
+            # Calculate fit score using hybrid algorithm
+            req_text = build_requirement_text(req_dict)
+            profile_text = build_profile_text(profile_md, location, profile.product_categories)
+            tfidf_score = calculate_text_similarity(req_text, profile_text, use_tfidf=True)
+
+            fit_score, match_reasons = calculate_hybrid_match_score(
+                requirement=req_dict,
+                profile_json=user_config.profile_json if user_config else {},
+                location=location,
+                tfidf_score=tfidf_score
+            )
+
+            # Skip if score too low
+            if fit_score < MINIMUM_FIT_SCORE:
+                continue
+
+            # Check if lead already exists
+            existing = await db.execute(
+                select(Lead).where(
+                    Lead.requirement_id == requirement.id,
+                    Lead.supplier_id == profile.user_id,
+                )
+            )
+            if existing.scalar_one_or_none():
+                continue
+
+            # Create lead
+            lead = Lead(
+                requirement_id=requirement.id,
+                buyer_id=requirement.buyer_id,
+                supplier_id=profile.user_id,
+                fit_score=fit_score,
+                match_reasons=match_reasons,
+                status="new",
+            )
+            db.add(lead)
+            await db.flush()
+
+            leads_created.append(lead)
+
+            logger.info(f"[MATCH-LEGACY] Created lead #{lead.id} → supplier #{profile.user_id} "
+                       f"({profile.trade_name}) fit={fit_score:.1f}%")
+
+        except Exception as e:
+            logger.error(f"[MATCH-LEGACY] Error creating lead for supplier #{profile.user_id}: {e}")
+            continue
+
+    requirement.matched_supplier_count = len(leads_created)
+    requirement.enrichment_status = "matched"
+    await db.flush()
+
+    logger.info(f"[MATCH-LEGACY] Requirement #{requirement.id}: {len(leads_created)} leads created")
+    return leads_created
 
 
 def _requirement_to_dict(req: Requirement) -> dict:

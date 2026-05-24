@@ -52,5 +52,5 @@ class AgenticProfile(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
-    user = relationship("User", back_populates="profile")
+    # Relationships - using lazy loading to avoid circular imports
+    user = relationship("User", back_populates="profile", lazy="select")

@@ -38,4 +38,5 @@ class UserConfig(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = relationship("User", foreign_keys=[user_id])
+    # Relationship - using lazy loading to avoid circular imports
+    user = relationship("User", foreign_keys=[user_id], lazy="select")

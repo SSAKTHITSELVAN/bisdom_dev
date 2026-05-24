@@ -17,6 +17,6 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
-    profile = relationship("AgenticProfile", back_populates="user", uselist=False)
-    requirements = relationship("Requirement", back_populates="buyer")
+    # Relationships - using lazy loading to avoid circular imports
+    profile = relationship("AgenticProfile", back_populates="user", uselist=False, lazy="select")
+    requirements = relationship("Requirement", back_populates="buyer", lazy="select")
