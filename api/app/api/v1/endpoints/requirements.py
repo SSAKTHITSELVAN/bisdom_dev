@@ -359,20 +359,22 @@ async def _initiate_seller_conversation(lead_id: int):
             lead.max_negotiation_rounds = 999  # Unlimited
 
             await db.commit()
-            logger.info(f"[CONV] Lead #{lead_id}: seller opened, buyer responded ✓ — starting autonomous loop")
-
-            # Kick off autonomous negotiation loop in background
-            # Use asyncio.ensure_future with current event loop to prevent premature cleanup
-            import asyncio
-            from app.api.v1.endpoints.conversations import _run_autonomous_negotiation_round
-
-            try:
-                loop = asyncio.get_event_loop()
-                loop.create_task(_run_autonomous_negotiation_round(lead_id))
-                logger.info(f"[CONV] Lead #{lead_id}: autonomous negotiation task created")
-            except Exception as e:
-                logger.error(f"[CONV] Lead #{lead_id}: failed to start autonomous loop — {e}")
+            logger.info(f"[CONV] Lead #{lead_id}: seller opened, buyer responded ✓")
 
         except Exception as e:
             logger.error(f"[CONV] Lead #{lead_id}: error — {e}")
             import traceback; traceback.print_exc()
+            return
+
+    # After initial conversation setup, start autonomous negotiation loop
+    # This must be outside the db session context to avoid conflicts
+    from app.api.v1.endpoints.conversations import _run_autonomous_negotiation_round
+    import asyncio
+
+    try:
+        logger.info(f"[CONV] Lead #{lead_id}: Starting autonomous negotiation loop")
+        await _run_autonomous_negotiation_round(lead_id)
+        logger.info(f"[CONV] Lead #{lead_id}: Autonomous negotiation completed")
+    except Exception as e:
+        logger.error(f"[CONV] Lead #{lead_id}: Autonomous loop error — {e}")
+        import traceback; traceback.print_exc()
