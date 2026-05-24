@@ -18,5 +18,5 @@ class RequirementChat(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    requirement = relationship("Requirement", foreign_keys=[requirement_id])
-    buyer = relationship("User", foreign_keys=[buyer_id])
+    requirement = relationship("Requirement", foreign_keys=[requirement_id], lazy="select")
+    buyer = relationship("User", foreign_keys=[buyer_id], lazy="select")

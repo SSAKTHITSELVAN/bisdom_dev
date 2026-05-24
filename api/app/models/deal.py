@@ -43,6 +43,6 @@ class Deal(Base):
     fulfilled_at = Column(DateTime, nullable=True)
 
     # Relationships
-    lead = relationship("Lead", foreign_keys=[lead_id])
-    buyer = relationship("User", foreign_keys=[buyer_id])
-    supplier = relationship("User", foreign_keys=[supplier_id])
+    lead = relationship("Lead", foreign_keys=[lead_id], lazy="select")
+    buyer = relationship("User", foreign_keys=[buyer_id], lazy="select")
+    supplier = relationship("User", foreign_keys=[supplier_id], lazy="select")

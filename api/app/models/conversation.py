@@ -38,11 +38,11 @@ class Conversation(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Explicit foreign_keys on every relationship pointing to User
-    lead = relationship("Lead", back_populates="conversation")
-    buyer = relationship("User", foreign_keys=[buyer_id])
-    supplier = relationship("User", foreign_keys=[supplier_id])
+    lead = relationship("Lead", back_populates="conversation", lazy="select")
+    buyer = relationship("User", foreign_keys=[buyer_id], lazy="select")
+    supplier = relationship("User", foreign_keys=[supplier_id], lazy="select")
     messages = relationship(
-        "Message", back_populates="conversation", order_by="Message.created_at"
+        "Message", back_populates="conversation", order_by="Message.created_at", lazy="select"
     )
 
 
@@ -64,4 +64,4 @@ class Message(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    conversation = relationship("Conversation", back_populates="messages")
+    conversation = relationship("Conversation", back_populates="messages", lazy="select")

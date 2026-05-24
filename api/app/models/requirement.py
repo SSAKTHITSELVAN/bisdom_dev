@@ -47,5 +47,5 @@ class Requirement(Base):
     is_expired = Column(Boolean, default=False)
 
     # Relationships
-    buyer = relationship("User", back_populates="requirements")
-    leads = relationship("Lead", back_populates="requirement")
+    buyer = relationship("User", back_populates="requirements", lazy="select")
+    leads = relationship("Lead", back_populates="requirement", lazy="select")

@@ -49,7 +49,7 @@ class Lead(Base):
     deal_closed_at = Column(DateTime, nullable=True)
 
     # Relationships
-    requirement = relationship("Requirement", back_populates="leads")
-    buyer = relationship("User", foreign_keys=[buyer_id])
-    supplier = relationship("User", foreign_keys=[supplier_id])
-    conversation = relationship("Conversation", back_populates="lead", uselist=False)
+    requirement = relationship("Requirement", back_populates="leads", lazy="select")
+    buyer = relationship("User", foreign_keys=[buyer_id], lazy="select")
+    supplier = relationship("User", foreign_keys=[supplier_id], lazy="select")
+    conversation = relationship("Conversation", back_populates="lead", uselist=False, lazy="select")
