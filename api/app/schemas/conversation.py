@@ -43,6 +43,21 @@ class ToggleChatRequest(BaseModel):
     enabled: bool
 
 
+class RequirementBasic(BaseModel):
+    """Basic requirement info for lead display"""
+    id: int
+    product: str
+    quantity: float
+    quantity_unit: Optional[str]
+    budget_max: Optional[float]
+    budget_unit: Optional[str] = "INR"
+    delivery_location: Optional[str]
+    specifications: Optional[dict]
+
+    class Config:
+        from_attributes = True
+
+
 class LeadOut(BaseModel):
     id: int
     requirement_id: int
@@ -65,6 +80,7 @@ class LeadOut(BaseModel):
     deal_closed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    requirement: Optional[RequirementBasic] = None  # NEW: Include requirement details
 
     class Config:
         from_attributes = True

@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import {
   Send, Bot, User, AlertTriangle, CheckCircle,
   RefreshCw, ChevronLeft, ToggleLeft, ToggleRight, X,
-  Sparkles, MessageSquare, Zap
+  Sparkles, MessageSquare, Zap, Package
 } from 'lucide-react'
 
 const ROLES = {
@@ -328,6 +328,52 @@ export default function ConversationView({ leadId }) {
             <RefreshCw size={13} color="rgba(255,255,255,0.4)"/>
           </button>
         </div>
+
+        {/* Requirement Info Card */}
+        {lead?.requirement && (
+          <div style={{
+            margin:'12px 24px 0', padding:'14px 18px',
+            background:'rgba(96,165,250,0.06)', border:'1px solid rgba(96,165,250,0.15)',
+            borderRadius:12, display:'flex', alignItems:'flex-start', gap:14
+          }}>
+            <div style={{
+              width:36, height:36, borderRadius:9, flexShrink:0,
+              background:'rgba(96,165,250,0.15)', border:'1px solid rgba(96,165,250,0.25)',
+              display:'flex', alignItems:'center', justifyContent:'center'
+            }}>
+              <Package size={16} color="#60a5fa"/>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <p style={{ fontSize:10, fontWeight:700, color:'rgba(96,165,250,0.7)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>
+                Matched For This Requirement
+              </p>
+              <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:4 }}>
+                {lead.requirement.product}
+              </p>
+              <div style={{ display:'flex', gap:12, flexWrap:'wrap', fontSize:11, color:'rgba(255,255,255,0.5)' }}>
+                <span>Qty: {lead.requirement.quantity} {lead.requirement.quantity_unit || 'units'}</span>
+                {lead.requirement.budget_max && (
+                  <>
+                    <span style={{ color:'rgba(255,255,255,0.2)' }}>|</span>
+                    <span>Budget: ₹{lead.requirement.budget_max.toLocaleString()}/{lead.requirement.quantity_unit || 'unit'}</span>
+                  </>
+                )}
+                {lead.requirement.delivery_location && (
+                  <>
+                    <span style={{ color:'rgba(255,255,255,0.2)' }}>|</span>
+                    <span>{lead.requirement.delivery_location}</span>
+                  </>
+                )}
+                {lead.fit_score && (
+                  <>
+                    <span style={{ color:'rgba(255,255,255,0.2)' }}>|</span>
+                    <span style={{ color:'#10b981', fontWeight:600 }}>Match: {lead.fit_score.toFixed(0)}%</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* AI paused banner */}
         {lead?.ai_paused_for_buyer && (

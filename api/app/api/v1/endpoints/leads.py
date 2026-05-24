@@ -63,8 +63,12 @@ async def get_lead(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from sqlalchemy.orm import selectinload
+
     result = await db.execute(
-        select(Lead).where(
+        select(Lead)
+        .options(selectinload(Lead.requirement))  # Eager load requirement
+        .where(
             Lead.id == lead_id,
             or_(Lead.buyer_id == current_user.id, Lead.supplier_id == current_user.id),
         )
