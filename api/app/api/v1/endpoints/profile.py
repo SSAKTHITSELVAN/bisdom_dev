@@ -14,6 +14,7 @@ from app.models.user import User
 from app.models.user_config import UserConfig
 from app.agents.profile_converter import json_to_markdown
 from app.agents.profile_converter_v2 import json_to_markdown_v2, convert_old_to_new_format
+from app.services.product_preprocessing import preprocess_supplier_products
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["Profile"])
@@ -147,6 +148,20 @@ async def update_profile(
 
     logger.info(f"[PROFILE] User #{current_user.id}: profile updated")
 
+    # AUTO-REPROCESS PRODUCTS for efficient matching
+    # This runs in background - updates supplier_products table with new embeddings
+    try:
+        products_count = await preprocess_supplier_products(
+            user_id=current_user.id,
+            db=db,
+            force_refresh=True  # Always refresh to keep in sync
+        )
+        await db.commit()
+        logger.info(f"[PROFILE] Auto-preprocessed {products_count} products for user #{current_user.id}")
+    except Exception as e:
+        logger.error(f"[PROFILE] Auto-preprocessing failed for user #{current_user.id}: {e}")
+        # Don't fail the profile update if preprocessing fails
+
     return {
         "success": True,
         "profile": profile_json,
@@ -180,6 +195,18 @@ async def add_product(
     await db.commit()
 
     logger.info(f"[PROFILE] User #{current_user.id}: added product '{request.product.name}'")
+
+    # AUTO-REPROCESS PRODUCTS for efficient matching
+    try:
+        products_count = await preprocess_supplier_products(
+            user_id=current_user.id,
+            db=db,
+            force_refresh=True
+        )
+        await db.commit()
+        logger.info(f"[PROFILE] Auto-preprocessed {products_count} products after adding product")
+    except Exception as e:
+        logger.error(f"[PROFILE] Auto-preprocessing failed: {e}")
 
     return {
         "success": True,
@@ -219,6 +246,18 @@ async def update_product(
 
     logger.info(f"[PROFILE] User #{current_user.id}: updated product #{request.index}")
 
+    # AUTO-REPROCESS PRODUCTS for efficient matching
+    try:
+        products_count = await preprocess_supplier_products(
+            user_id=current_user.id,
+            db=db,
+            force_refresh=True
+        )
+        await db.commit()
+        logger.info(f"[PROFILE] Auto-preprocessed {products_count} products after updating product")
+    except Exception as e:
+        logger.error(f"[PROFILE] Auto-preprocessing failed: {e}")
+
     return {
         "success": True,
         "profile": profile_json,
@@ -256,6 +295,18 @@ async def delete_product(
     await db.commit()
 
     logger.info(f"[PROFILE] User #{current_user.id}: deleted product '{deleted_name}'")
+
+    # AUTO-REPROCESS PRODUCTS for efficient matching
+    try:
+        products_count = await preprocess_supplier_products(
+            user_id=current_user.id,
+            db=db,
+            force_refresh=True
+        )
+        await db.commit()
+        logger.info(f"[PROFILE] Auto-preprocessed {products_count} products after deleting product")
+    except Exception as e:
+        logger.error(f"[PROFILE] Auto-preprocessing failed: {e}")
 
     return {
         "success": True,
