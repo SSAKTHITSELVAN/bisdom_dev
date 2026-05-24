@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, DECIMAL, JSON
+from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, DECIMAL, JSON, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from sqlalchemy import DateTime
 from app.db.base import Base
 
 
@@ -55,5 +54,5 @@ class SupplierProduct(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationship
-    supplier = relationship("User", foreign_keys=[supplier_id])
+    # Relationship (lazy import to avoid circular dependency)
+    # supplier = relationship("User", foreign_keys=[supplier_id])
