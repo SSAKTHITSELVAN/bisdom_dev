@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, onboarding, requirements, conversations,
-    leads, dashboard, config, requirement_chat, expiry, admin, profile
+    leads, dashboard, config, requirement_chat, expiry, admin, profile, preprocessing
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -16,5 +16,6 @@ router.include_router(config.router)
 router.include_router(profile.router)
 router.include_router(requirement_chat.router)
 router.include_router(expiry.router)
+router.include_router(preprocessing.router)
 
 router.include_router(admin.router)
