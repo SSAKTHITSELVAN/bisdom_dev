@@ -42,11 +42,27 @@ async def list_leads_as_buyer(
 
     result = await db.execute(
         select(Lead)
-        .options(selectinload(Lead.requirement))  # Eager load requirement
+        .options(
+            selectinload(Lead.requirement),  # Eager load requirement
+            selectinload(Lead.supplier).selectinload(User.profile)  # Eager load supplier profile
+        )
         .where(Lead.buyer_id == current_user.id)
         .order_by(desc(Lead.updated_at))
     )
-    return result.scalars().all()
+    leads = result.scalars().all()
+
+    # Add supplier_info to each lead
+    for lead in leads:
+        if lead.supplier and lead.supplier.profile:
+            profile = lead.supplier.profile
+            lead.supplier_info = {
+                "supplier_id": lead.supplier_id,
+                "trade_name": profile.trade_name,
+                "city": profile.city,
+                "state": profile.state
+            }
+
+    return leads
 
 
 @router.get("/as-supplier", response_model=list[LeadOut])
@@ -59,11 +75,27 @@ async def list_leads_as_supplier(
 
     result = await db.execute(
         select(Lead)
-        .options(selectinload(Lead.requirement))  # Eager load requirement
+        .options(
+            selectinload(Lead.requirement),  # Eager load requirement
+            selectinload(Lead.supplier).selectinload(User.profile)  # Eager load supplier profile
+        )
         .where(Lead.supplier_id == current_user.id)
         .order_by(desc(Lead.updated_at))
     )
-    return result.scalars().all()
+    leads = result.scalars().all()
+
+    # Add supplier_info to each lead
+    for lead in leads:
+        if lead.supplier and lead.supplier.profile:
+            profile = lead.supplier.profile
+            lead.supplier_info = {
+                "supplier_id": lead.supplier_id,
+                "trade_name": profile.trade_name,
+                "city": profile.city,
+                "state": profile.state
+            }
+
+    return leads
 
 
 @router.get("/{lead_id}", response_model=LeadOut)
@@ -76,7 +108,10 @@ async def get_lead(
 
     result = await db.execute(
         select(Lead)
-        .options(selectinload(Lead.requirement))  # Eager load requirement
+        .options(
+            selectinload(Lead.requirement),  # Eager load requirement
+            selectinload(Lead.supplier).selectinload(User.profile)  # Eager load supplier profile
+        )
         .where(
             Lead.id == lead_id,
             or_(Lead.buyer_id == current_user.id, Lead.supplier_id == current_user.id),
@@ -85,6 +120,17 @@ async def get_lead(
     lead = result.scalar_one_or_none()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+
+    # Add supplier_info to the lead
+    if lead.supplier and lead.supplier.profile:
+        profile = lead.supplier.profile
+        lead.supplier_info = {
+            "supplier_id": lead.supplier_id,
+            "trade_name": profile.trade_name,
+            "city": profile.city,
+            "state": profile.state
+        }
+
     return lead
 
 

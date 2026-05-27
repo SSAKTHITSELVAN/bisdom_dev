@@ -58,6 +58,14 @@ class RequirementBasic(BaseModel):
         from_attributes = True
 
 
+class SupplierBasic(BaseModel):
+    """Basic supplier info for lead display"""
+    supplier_id: int
+    trade_name: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+
+
 class LeadOut(BaseModel):
     id: int
     requirement_id: int
@@ -80,7 +88,8 @@ class LeadOut(BaseModel):
     deal_closed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
-    requirement: Optional[RequirementBasic] = None  # NEW: Include requirement details
+    requirement: Optional[RequirementBasic] = None  # Include requirement details
+    supplier_info: Optional[SupplierBasic] = None   # NEW: Include supplier details
 
     class Config:
         from_attributes = True

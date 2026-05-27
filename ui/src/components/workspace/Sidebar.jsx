@@ -80,7 +80,7 @@ function RequirementFolder({ req, leads = [], onNavClick }) {
               }}/>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:11, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                  Seller #{lead.supplier_id}
+                  {lead.supplier_info?.trade_name || `Seller #${lead.supplier_id}`}
                 </div>
                 <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', marginTop:1 }}>
                   {lead.current_offer_price ? `₹${lead.current_offer_price.toLocaleString()}/unit` : lead.status.replace(/_/g,' ')}
