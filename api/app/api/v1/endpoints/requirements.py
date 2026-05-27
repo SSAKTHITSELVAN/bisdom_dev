@@ -174,6 +174,9 @@ async def _run_matching(requirement_id: int):
     from app.db.base import AsyncSessionLocal
     import asyncio
 
+    # Extract lead IDs within the database session scope
+    lead_ids = []
+
     async with AsyncSessionLocal() as db:
         try:
             req_result = await db.execute(
@@ -186,27 +189,31 @@ async def _run_matching(requirement_id: int):
 
             logger.info(f"[MATCH] Starting matching for requirement #{requirement_id}")
             leads = await match_requirement_to_suppliers(requirement, db)
+
+            # Extract lead IDs BEFORE committing (while objects are still attached to session)
+            lead_ids = [lead.id for lead in leads]
+
             await db.commit()
-
-            logger.info(f"[MATCH] Requirement #{requirement_id}: {len(leads)} leads created — initiating seller agents")
-
-            if len(leads) == 0:
-                logger.warning(f"[MATCH] Requirement #{requirement_id}: no matching suppliers found")
-                return
-
-            # Initiate conversations for all leads sequentially
-            for lead in leads:
-                try:
-                    logger.info(f"[MATCH] Initiating conversation for lead #{lead.id}")
-                    await _initiate_seller_conversation(lead.id)
-                    # Small delay between starting conversations
-                    await asyncio.sleep(1)
-                except Exception as conv_err:
-                    logger.error(f"[MATCH] Failed to initiate conversation for lead #{lead.id}: {conv_err}")
-                    import traceback; traceback.print_exc()
+            logger.info(f"[MATCH] Requirement #{requirement_id}: {len(lead_ids)} leads created — initiating seller agents")
 
         except Exception as e:
             logger.error(f"[MATCH] Error for requirement #{requirement_id}: {e}")
+            import traceback; traceback.print_exc()
+            return
+
+    # Initiate conversations OUTSIDE the database session (leads are already committed)
+    if len(lead_ids) == 0:
+        logger.warning(f"[MATCH] Requirement #{requirement_id}: no matching suppliers found")
+        return
+
+    for lead_id in lead_ids:
+        try:
+            logger.info(f"[MATCH] Initiating conversation for lead #{lead_id}")
+            await _initiate_seller_conversation(lead_id)
+            # Small delay between starting conversations
+            await asyncio.sleep(1)
+        except Exception as conv_err:
+            logger.error(f"[MATCH] Failed to initiate conversation for lead #{lead_id}: {conv_err}")
             import traceback; traceback.print_exc()
 
 
