@@ -19,8 +19,11 @@ async def list_leads(
     limit: int = 20,
 ):
     """List all leads where current user is buyer or supplier."""
+    from sqlalchemy.orm import selectinload
+
     result = await db.execute(
         select(Lead)
+        .options(selectinload(Lead.requirement))  # Eager load requirement
         .where(or_(Lead.buyer_id == current_user.id, Lead.supplier_id == current_user.id))
         .order_by(desc(Lead.created_at))
         .offset(skip).limit(limit)
@@ -35,8 +38,11 @@ async def list_leads_as_buyer(
     current_user: User = Depends(get_current_user),
 ):
     """List leads where current user is the buyer."""
+    from sqlalchemy.orm import selectinload
+
     result = await db.execute(
         select(Lead)
+        .options(selectinload(Lead.requirement))  # Eager load requirement
         .where(Lead.buyer_id == current_user.id)
         .order_by(desc(Lead.updated_at))
     )
@@ -49,8 +55,11 @@ async def list_leads_as_supplier(
     current_user: User = Depends(get_current_user),
 ):
     """List leads where current user is the supplier."""
+    from sqlalchemy.orm import selectinload
+
     result = await db.execute(
         select(Lead)
+        .options(selectinload(Lead.requirement))  # Eager load requirement
         .where(Lead.supplier_id == current_user.id)
         .order_by(desc(Lead.updated_at))
     )
