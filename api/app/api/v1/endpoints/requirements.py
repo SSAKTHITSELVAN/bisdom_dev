@@ -122,7 +122,7 @@ async def confirm_requirement_endpoint(
 
     requirement.enrichment_status = "matching"
     requirement.confirmed_at = datetime.utcnow()
-    await db.flush()
+    await db.commit()  # CRITICAL: Commit BEFORE background task starts
 
     background_tasks.add_task(_run_matching, requirement.id)
 
