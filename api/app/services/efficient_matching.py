@@ -279,20 +279,20 @@ async def match_requirement_efficient(
             )
         )
 
-    # Filter by budget (price must be <= budget max)
+    # Filter by budget (price must be <= budget max * 1.5) - relaxed to allow negotiation
     if requirement.budget_max:
         filter_conditions.append(
             or_(
-                SupplierProduct.price_min <= requirement.budget_max * 1.3,  # Allow 30% over budget
+                SupplierProduct.price_min <= requirement.budget_max * 1.5,  # Allow 50% over budget
                 SupplierProduct.price_min.is_(None)  # Include products without price
             )
         )
 
-    # Filter by MOQ (MOQ must be <= requirement quantity * 1.5)
+    # Filter by MOQ (MOQ must be <= requirement quantity * 5.0) - relaxed to allow negotiation
     if requirement.quantity:
         filter_conditions.append(
             or_(
-                SupplierProduct.moq <= requirement.quantity * 1.5,
+                SupplierProduct.moq <= requirement.quantity * 5.0,  # Allow up to 5x for negotiation
                 SupplierProduct.moq.is_(None)  # Include products without MOQ
             )
         )
