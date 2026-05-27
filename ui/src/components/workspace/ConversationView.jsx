@@ -24,51 +24,68 @@ function Bubble({ msg }) {
   const isMine = msg.role === 'human_buyer' || msg.role === 'ai_buyer'
 
   if (msg.role === 'system') return (
-    <div style={{ display:'flex', justifyContent:'center', margin:'20px 0' }}>
-      <div className="bubble-system">{msg.content}</div>
+    <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
+      <div style={{
+        fontSize:11, color:'rgba(255,255,255,0.35)', background:'rgba(255,255,255,0.04)',
+        padding:'6px 14px', borderRadius:16, border:'1px solid rgba(255,255,255,0.06)'
+      }}>
+        {msg.content}
+      </div>
     </div>
   )
 
   return (
-    <div style={{ marginBottom:20 }} className="fade-in">
-      <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
-        <div style={{
-          width:36, height:36, borderRadius:9, flexShrink:0,
-          background: role.color+'15', border:`1px solid ${role.color}30`,
-          display:'flex', alignItems:'center', justifyContent:'center'
-        }}>
-          {role.isAI ? <Bot size={16} style={{color:role.color}}/> : <User size={16} style={{color:role.color}}/>}
+    <div style={{ display:'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom:12 }} className="fade-in">
+      <div style={{ maxWidth:'75%', display:'flex', flexDirection:'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+        {/* Label above bubble */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4, paddingLeft: isMine ? 0 : 8, paddingRight: isMine ? 8 : 0 }}>
+          {!isMine && (
+            <div style={{
+              width:20, height:20, borderRadius:6, flexShrink:0,
+              background: role.color+'15', border:`1px solid ${role.color}30`,
+              display:'flex', alignItems:'center', justifyContent:'center'
+            }}>
+              {role.isAI ? <Bot size={10} style={{color:role.color}}/> : <User size={10} style={{color:role.color}}/>}
+            </div>
+          )}
+          <span style={{ fontSize:10, fontWeight:600, color:role.color }}>{role.label}</span>
+          <span style={{ fontSize:9, color:'rgba(255,255,255,0.25)' }}>
+            {new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
+          </span>
         </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-            <span style={{ fontSize:11, fontWeight:600, color:role.color, letterSpacing:'0.01em' }}>{role.label}</span>
-            <span style={{ fontSize:10, color:'rgba(255,255,255,0.25)' }}>
-              {new Date(msg.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
-            </span>
-          </div>
-          <div className={isMine ? 'bubble-user' : 'bubble-ai'}>
-            <p style={{ fontSize:13, lineHeight:1.65, color:'rgba(255,255,255,0.9)', whiteSpace:'pre-wrap', margin:0 }}>
-              {msg.content}
-            </p>
+
+        {/* Message bubble */}
+        <div style={{
+          background: isMine
+            ? 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)'
+            : 'rgba(255,255,255,0.06)',
+          border: isMine ? 'none' : '1px solid rgba(255,255,255,0.08)',
+          borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+          padding:'12px 16px',
+          boxShadow: isMine ? '0 2px 8px rgba(30,58,138,0.3)' : '0 1px 4px rgba(0,0,0,0.2)'
+        }}>
+          <p style={{ fontSize:13, lineHeight:1.6, color:'rgba(255,255,255,0.95)', whiteSpace:'pre-wrap', margin:0 }}>
+            {msg.content}
+          </p>
+
           {msg.structured_data?.offer && Object.keys(msg.structured_data.offer).length > 0 && (
             <div style={{
-              marginTop:12, background:'rgba(59,130,246,0.08)',
-              border:'1px solid rgba(59,130,246,0.2)', borderRadius:10, padding:12
+              marginTop:10, background:'rgba(255,255,255,0.08)',
+              border:'1px solid rgba(255,255,255,0.12)', borderRadius:10, padding:10
             }}>
-              <p style={{ fontSize:10, fontWeight:700, color:'#60a5fa', marginBottom:8, textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              <p style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.6)', marginBottom:8, textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 Offer Details
               </p>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                 {Object.entries(msg.structured_data.offer).map(([k,v]) => (
                   <div key={k}>
-                    <p style={{ fontSize:9, color:'rgba(255,255,255,0.4)', textTransform:'capitalize', marginBottom:2 }}>{k.replace(/_/g,' ')}</p>
-                    <p style={{ fontSize:12, fontWeight:700, color:'#fff', margin:0 }}>{typeof v === 'number' ? `₹${v.toLocaleString()}` : v}</p>
+                    <p style={{ fontSize:9, color:'rgba(255,255,255,0.45)', textTransform:'capitalize', marginBottom:2 }}>{k.replace(/_/g,' ')}</p>
+                    <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.95)', margin:0 }}>{typeof v === 'number' ? `₹${v.toLocaleString()}` : v}</p>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          </div>
         </div>
       </div>
     </div>
@@ -396,129 +413,131 @@ export default function ConversationView({ leadId }) {
         )}
 
         {/* Messages */}
-        <div style={{ flex:1, overflowY:'auto', padding:'24px 20px' }}>
-          <div className="chat-container">
-            {loading && (
-              <div style={{ display:'flex', justifyContent:'center', padding:48 }}>
-                <Spinner size={24} color="rgba(255,255,255,0.3)"/>
-              </div>
-            )}
-            {!loading && !conv && (
-              <div style={{ textAlign:'center', padding:'64px 20px', color:'rgba(255,255,255,0.3)' }}>
-                <Bot size={40} style={{ margin:'0 auto 16px', opacity:0.2 }}/>
-                <p style={{ fontSize:14, fontWeight:500 }}>
-                  {lead?.status === 'new' ? 'Initiating conversation...' : 'No conversation yet'}
-                </p>
-                <p style={{ fontSize:12, color:'rgba(255,255,255,0.2)', marginTop:6, maxWidth:300, margin:'6px auto 0' }}>
-                  {lead?.status === 'new'
-                    ? 'AI agents are starting the negotiation. This usually takes 5-10 seconds.'
-                    : lead?.status === 'agent_initiated'
-                    ? 'AI agents are generating their opening messages...'
-                    : lead?.ai_paused_for_buyer
-                    ? 'Waiting for your decision. Use the Actions panel to continue.'
-                    : lead?.ai_paused_for_supplier
-                    ? 'Waiting for supplier to respond. AI has paused for human input.'
-                    : 'AI agents will begin negotiating shortly'
-                  }
-                </p>
-                <button onClick={fetch} style={{ marginTop:16, fontSize:12, color:'#3b82f6', background:'rgba(59,130,246,0.1)', border:'1px solid rgba(59,130,246,0.2)', borderRadius:8, padding:'8px 16px', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6 }}>
-                  <RefreshCw size={12}/> Refresh
-                </button>
-              </div>
-            )}
-            {conv?.messages?.map((m,i) => (
-              <Bubble key={m.id||i} msg={m}/>
-            ))}
+        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+          {loading && (
+            <div style={{ display:'flex', justifyContent:'center', padding:48 }}>
+              <Spinner size={24} color="rgba(255,255,255,0.3)"/>
+            </div>
+          )}
+          {!loading && !conv && (
+            <div style={{ textAlign:'center', padding:'64px 20px', color:'rgba(255,255,255,0.3)' }}>
+              <Bot size={40} style={{ margin:'0 auto 16px', opacity:0.2 }}/>
+              <p style={{ fontSize:14, fontWeight:500 }}>
+                {lead?.status === 'new' ? 'Initiating conversation...' : 'No conversation yet'}
+              </p>
+              <p style={{ fontSize:12, color:'rgba(255,255,255,0.2)', marginTop:6, maxWidth:300, margin:'6px auto 0' }}>
+                {lead?.status === 'new'
+                  ? 'AI agents are starting the negotiation. This usually takes 5-10 seconds.'
+                  : lead?.status === 'agent_initiated'
+                  ? 'AI agents are generating their opening messages...'
+                  : lead?.ai_paused_for_buyer
+                  ? 'Waiting for your decision. Use the Actions panel to continue.'
+                  : lead?.ai_paused_for_supplier
+                  ? 'Waiting for supplier to respond. AI has paused for human input.'
+                  : 'AI agents will begin negotiating shortly'
+                }
+              </p>
+              <button onClick={fetch} style={{ marginTop:16, fontSize:12, color:'#3b82f6', background:'rgba(59,130,246,0.1)', border:'1px solid rgba(59,130,246,0.2)', borderRadius:8, padding:'8px 16px', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6 }}>
+                <RefreshCw size={12}/> Refresh
+              </button>
+            </div>
+          )}
+          {conv?.messages?.map((m,i) => (
+            <Bubble key={m.id||i} msg={m}/>
+          ))}
 
-            {/* Show waiting message if AI is paused */}
-            {conv && conv.messages && conv.messages.length > 0 && (
-              lead?.ai_paused_for_buyer ? (
-                <div style={{ textAlign:'center', margin:'24px 0', padding:'16px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:12 }}>
-                  <AlertTriangle size={24} color="#f59e0b" style={{ margin:'0 auto 8px' }}/>
-                  <p style={{ fontSize:13, fontWeight:600, color:'#f59e0b', marginBottom:4 }}>AI Paused — Waiting for Your Decision</p>
-                  <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>The buyer AI needs your input to continue. Use the Actions panel to decide.</p>
+          {/* Show waiting message if AI is paused */}
+          {conv && conv.messages && conv.messages.length > 0 && (
+            lead?.ai_paused_for_buyer ? (
+              <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
+                <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:14 }}>
+                  <AlertTriangle size={20} color="#f59e0b" style={{ margin:'0 auto 6px' }}/>
+                  <p style={{ fontSize:12, fontWeight:600, color:'#f59e0b', marginBottom:3 }}>AI Paused — Waiting for Your Decision</p>
+                  <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>The buyer AI needs your input to continue. Use the Actions panel to decide.</p>
                 </div>
-              ) : lead?.ai_paused_for_supplier ? (
-                <div style={{ textAlign:'center', margin:'24px 0', padding:'16px', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:12 }}>
-                  <Bot size={24} color="#8b5cf6" style={{ margin:'0 auto 8px' }}/>
-                  <p style={{ fontSize:13, fontWeight:600, color:'#8b5cf6', marginBottom:4 }}>Waiting for Supplier Response</p>
-                  <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>The supplier AI has paused for human input. The conversation will continue once they respond.</p>
+              </div>
+            ) : lead?.ai_paused_for_supplier ? (
+              <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
+                <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:14 }}>
+                  <Bot size={20} color="#8b5cf6" style={{ margin:'0 auto 6px' }}/>
+                  <p style={{ fontSize:12, fontWeight:600, color:'#8b5cf6', marginBottom:3 }}>Waiting for Supplier Response</p>
+                  <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>The supplier AI has paused for human input. The conversation will continue once they respond.</p>
                 </div>
-              ) : null
-            )}
-            <div ref={bottomRef}/>
-          </div>
+              </div>
+            ) : null
+          )}
+          <div ref={bottomRef}/>
         </div>
 
         {/* Input area */}
-        <div style={{ padding:'16px 20px 24px', borderTop:'1px solid rgba(255,255,255,0.06)' }}>
-          <div className="chat-container">
-            {chatOn && conv ? (
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                <div style={{
-                  display:'flex', alignItems:'flex-end', gap:10,
-                  background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)',
-                  borderRadius:12, padding:'12px 14px'
-                }}>
-                <textarea
-                  style={{
-                    flex:1, background:'transparent', border:'none', outline:'none',
-                    color:'#fff', fontSize:13, fontFamily:'Inter,system-ui,sans-serif',
-                    resize:'none', lineHeight:1.6, minHeight:22, maxHeight:120
-                  }}
-                  placeholder="Type your message…"
-                  value={msg} onChange={e => setMsg(e.target.value)}
-                  onKeyDown={e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend()} }}
-                  rows={1}
-                />
-                <button onClick={handleSend} disabled={!msg.trim()||sending}
-                  style={{
-                    width:36, height:36, borderRadius:9, border:'none', cursor:'pointer',
-                    display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-                    background: msg.trim()&&!sending ? 'linear-gradient(135deg,#1d4ed8,#3b82f6)' : 'rgba(255,255,255,0.06)',
-                  }}>
-                  {sending ? <Spinner size={14}/> : <Send size={14} color="white"/>}
-                </button>
-              </div>
-              {/* AI Suggest Button */}
-              <button
-                onClick={handleSuggest}
-                disabled={suggesting}
-                style={{
-                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                  padding:'10px 18px', borderRadius:10, cursor: suggesting ? 'default' : 'pointer',
-                  background:'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(59,130,246,0.12))',
-                  border:'1px solid rgba(139,92,246,0.25)',
-                  fontFamily:'Inter,system-ui,sans-serif', width:'100%',
-                  transition:'all 0.2s'
-                }}
-              >
-                {suggesting
-                  ? <><Spinner size={13}/><span style={{ fontSize:12, color:'rgba(255,255,255,0.5)', fontWeight:500 }}>Generating suggestion…</span></>
-                  : <><Sparkles size={14} color="#a78bfa"/><span style={{ fontSize:12, color:'#a78bfa', fontWeight:600 }}>AI Suggest Best Response</span></>
-                }
-                </button>
-              </div>
-            ) : (
+        <div style={{ padding:'16px 24px 20px', borderTop:'1px solid rgba(255,255,255,0.06)', background:'rgba(10,18,37,0.6)' }}>
+          {chatOn && conv ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <div style={{
-                display:'flex', alignItems:'center', justifyContent:'space-between',
-                background:'rgba(59,130,246,0.05)', border:'1px solid rgba(59,130,246,0.15)',
-                borderRadius:12, padding:'14px 18px'
+                display:'flex', alignItems:'flex-end', gap:12,
+                background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.12)',
+                borderRadius:20, padding:'10px 16px', boxShadow:'0 2px 8px rgba(0,0,0,0.2)'
               }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ width:28, height:28, borderRadius:7, background:'rgba(59,130,246,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <Bot size={14} color="#3b82f6"/>
-                  </div>
-                  <span style={{ fontSize:12, color:'rgba(255,255,255,0.5)', fontWeight:500 }}>
-                    AI is negotiating on your behalf — toggle Live Chat to join
-                  </span>
+              <textarea
+                style={{
+                  flex:1, background:'transparent', border:'none', outline:'none',
+                  color:'#fff', fontSize:13, fontFamily:'Inter,system-ui,sans-serif',
+                  resize:'none', lineHeight:1.6, minHeight:22, maxHeight:120
+                }}
+                placeholder="Type your message…"
+                value={msg} onChange={e => setMsg(e.target.value)}
+                onKeyDown={e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend()} }}
+                rows={1}
+              />
+              <button onClick={handleSend} disabled={!msg.trim()||sending}
+                style={{
+                  width:40, height:40, borderRadius:'50%', border:'none', cursor: msg.trim()&&!sending ? 'pointer' : 'default',
+                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                  background: msg.trim()&&!sending ? 'linear-gradient(135deg,#1d4ed8,#3b82f6)' : 'rgba(255,255,255,0.08)',
+                  boxShadow: msg.trim()&&!sending ? '0 2px 8px rgba(29,78,216,0.4)' : 'none',
+                  transition:'all 0.2s'
+                }}>
+                {sending ? <Spinner size={16}/> : <Send size={16} color={msg.trim() ? 'white' : 'rgba(255,255,255,0.3)'}/>}
+              </button>
+            </div>
+            {/* AI Suggest Button */}
+            <button
+              onClick={handleSuggest}
+              disabled={suggesting}
+              style={{
+                display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                padding:'10px 18px', borderRadius:12, cursor: suggesting ? 'default' : 'pointer',
+                background:'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(59,130,246,0.12))',
+                border:'1px solid rgba(139,92,246,0.25)',
+                fontFamily:'Inter,system-ui,sans-serif', width:'100%',
+                transition:'all 0.2s'
+              }}
+            >
+              {suggesting
+                ? <><Spinner size={13}/><span style={{ fontSize:11, color:'rgba(255,255,255,0.5)', fontWeight:500 }}>Generating suggestion…</span></>
+                : <><Sparkles size={13} color="#a78bfa"/><span style={{ fontSize:11, color:'#a78bfa', fontWeight:600 }}>AI Suggest Best Response</span></>
+              }
+              </button>
+            </div>
+          ) : (
+            <div style={{
+              display:'flex', alignItems:'center', justifyContent:'space-between',
+              background:'rgba(59,130,246,0.05)', border:'1px solid rgba(59,130,246,0.15)',
+              borderRadius:12, padding:'12px 16px'
+            }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ width:28, height:28, borderRadius:7, background:'rgba(59,130,246,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <Bot size={14} color="#3b82f6"/>
                 </div>
-                <button onClick={fetch} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', width:28, height:28, borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <RefreshCw size={12} color="rgba(255,255,255,0.4)"/>
-                </button>
+                <span style={{ fontSize:12, color:'rgba(255,255,255,0.5)', fontWeight:500 }}>
+                  AI is negotiating on your behalf — toggle Live Chat to join
+                </span>
               </div>
-            )}
-          </div>
+              <button onClick={fetch} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', width:28, height:28, borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <RefreshCw size={12} color="rgba(255,255,255,0.4)"/>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
