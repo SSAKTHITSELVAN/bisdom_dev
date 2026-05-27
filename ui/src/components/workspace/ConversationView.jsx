@@ -202,20 +202,19 @@ export default function ConversationView({ leadId }) {
 
   // Auto-refresh while conversation is being initiated
   useEffect(() => {
-    if (!lead || !conv) return
+    // Poll if conversation doesn't exist yet OR if it has no messages
+    const shouldPoll = !conv ||
+                       (lead && (lead.status === 'new' || lead.status === 'agent_initiated') &&
+                       (!conv.messages || conv.messages.length === 0))
 
-    // If lead is new or has no messages, keep polling
-    const shouldPoll = (lead.status === 'new' || lead.status === 'agent_initiated') &&
-                       (!conv.messages || conv.messages.length === 0)
-
-    if (shouldPoll) {
+    if (shouldPoll && !loading) {
       const timer = setInterval(() => {
         fetch()
       }, 3000) // Poll every 3 seconds
 
       return () => clearInterval(timer)
     }
-  }, [lead?.status, conv?.messages?.length])
+  }, [lead?.status, conv?.messages?.length, conv, loading])
 
   const handleToggle = async () => {
     const newChatOn = !chatOn
