@@ -14,7 +14,9 @@ export default defineConfig({
       'bisdomai.com',
       'www.bisdomai.com',
       'localhost',
-      '.bisdomai.com'
+      '.bisdomai.com',
+      '3.109.70.144',  // IP address for testing
+      '.compute.amazonaws.com'  // AWS hostname
     ]
   }
 })
