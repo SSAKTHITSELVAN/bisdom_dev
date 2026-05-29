@@ -422,7 +422,7 @@ export default function ConversationView({ leadId }) {
         )}
 
         {/* Messages */}
-        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px 120px 24px' }}>
+        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px 180px 24px' }}>
           {loading && (
             <div style={{ display:'flex', justifyContent:'center', padding:48 }}>
               <Spinner size={24} color="rgba(255,255,255,0.3)"/>
