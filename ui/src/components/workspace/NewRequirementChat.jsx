@@ -165,7 +165,7 @@ export default function NewRequirementChat() {
       </div>
 
       {/* Chat area */}
-      <div style={{ flex:1, overflowY:'auto', padding:'24px 20px' }}>
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 20px 120px 20px' }}>
         <div className="chat-container">
           {!started && (
             <div className="fade-in">

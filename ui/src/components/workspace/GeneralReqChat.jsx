@@ -102,7 +102,7 @@ export default function GeneralReqChat({ req, leads = [] }) {
       </div>
 
       {/* Messages */}
-      <div style={{ flex:1, overflowY:'auto', padding:'24px 20px' }}>
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 20px 120px 20px' }}>
         <div className="chat-container">
           {loading && <div style={{ display:'flex', justifyContent:'center', padding:40 }}><Spinner size={22} color="rgba(255,255,255,0.3)"/></div>}
 
