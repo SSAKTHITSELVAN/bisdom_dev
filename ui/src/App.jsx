@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import LandingPage from '@/components/auth/LandingPage'
 import ConversationalLogin from '@/components/auth/ConversationalLogin'
 import PhonePage from '@/components/auth/PhonePage'
 import OTPPage from '@/components/auth/OTPPage'
@@ -35,11 +36,13 @@ export default function App() {
         }
       }}/>
       <Routes>
-        {/* Auth - New Conversational Flow */}
-        <Route path="/login" element={<ConversationalLogin/>}/>
+        {/* Landing Page - New Default */}
+        <Route path="/" element={<LandingPage/>}/>
 
-        {/* Old Auth Flow (kept as fallback) */}
-        <Route path="/login-old"      element={<PhonePage/>}/>
+        {/* Auth Routes */}
+        <Route path="/login" element={<LandingPage/>}/>
+        <Route path="/login-chat" element={<ConversationalLogin/>}/> {/* Old chatbot login */}
+        <Route path="/login-old" element={<PhonePage/>}/> {/* Legacy form login */}
         <Route path="/verify-otp" element={<OTPPage/>}/>
         <Route path="/onboarding" element={
           <ProtectedRoute requireOnboarding={false}><OnboardingPage/></ProtectedRoute>
@@ -65,8 +68,7 @@ export default function App() {
           <Route path="map" element={<AdminMap/>}/>
         </Route>
 
-        <Route path="/"   element={<Navigate to="/workspace" replace/>}/>
-        <Route path="*"   element={<Navigate to="/workspace" replace/>}/>
+        <Route path="*" element={<Navigate to="/" replace/>}/>
       </Routes>
     </BrowserRouter>
   )
