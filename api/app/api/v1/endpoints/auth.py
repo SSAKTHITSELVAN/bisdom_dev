@@ -23,7 +23,8 @@ async def send_otp(request: SendOTPRequest, db: AsyncSession = Depends(get_db)):
     otp = generate_otp(request.phone)
     user.otp_code = otp
     user.otp_expires_at = get_otp_expiry()
-    await db.flush()
+    await db.commit()  # CRITICAL: Must commit to persist OTP to database
+    await db.refresh(user)
 
     # In production: send OTP via SMS (Twilio, MSG91, etc.)
     # For MVP: static OTP 123456
@@ -50,7 +51,8 @@ async def verify_otp_endpoint(request: VerifyOTPRequest, db: AsyncSession = Depe
 
     user.is_verified = True
     user.otp_code = None  # Clear OTP after use
-    await db.flush()
+    await db.commit()  # Commit the verification
+    await db.refresh(user)
 
     token = create_access_token({"sub": str(user.id), "phone": user.phone})
 
