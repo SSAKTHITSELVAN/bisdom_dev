@@ -68,6 +68,13 @@ export default function LandingPage() {
 
   // Handle auth start
   const handleAuthStart = (mode) => {
+    // If it's "Get Started", go to chatbot directly
+    if (mode === 'signup') {
+      navigate('/login-chat')
+      return
+    }
+
+    // Otherwise show modal for Sign In
     setAuthMode(mode)
     setShowAuthModal(true)
     setStep('phone')
@@ -92,7 +99,9 @@ export default function LandingPage() {
       setResendTimer(30)
       setCanResendOTP(false)
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to send OTP')
+      // Handle error properly - extract message string
+      const errorMsg = err.response?.data?.detail || err.message || 'Failed to send OTP'
+      toast.error(typeof errorMsg === 'string' ? errorMsg : 'Failed to send OTP')
     } finally {
       setLoading(false)
     }
@@ -124,7 +133,9 @@ export default function LandingPage() {
         navigate('/workspace')
       }
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Invalid OTP')
+      // Handle error properly - extract message string
+      const errorMsg = err.response?.data?.detail || err.message || 'Invalid OTP'
+      toast.error(typeof errorMsg === 'string' ? errorMsg : 'Invalid OTP')
     } finally {
       setLoading(false)
     }
@@ -144,7 +155,9 @@ export default function LandingPage() {
       toast.success('GSTIN verified! Setting up your profile...')
       navigate('/onboarding')
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Invalid GSTIN')
+      // Handle error properly - extract message string
+      const errorMsg = err.response?.data?.detail || err.message || 'Invalid GSTIN'
+      toast.error(typeof errorMsg === 'string' ? errorMsg : 'Invalid GSTIN')
     } finally {
       setLoading(false)
     }
@@ -159,7 +172,9 @@ export default function LandingPage() {
       await sendOTP({ phone: phoneNumber })
       toast.success('OTP resent successfully!')
     } catch (err) {
-      toast.error('Failed to resend OTP')
+      // Handle error properly
+      const errorMsg = err.response?.data?.detail || err.message || 'Failed to resend OTP'
+      toast.error(typeof errorMsg === 'string' ? errorMsg : 'Failed to resend OTP')
       setCanResendOTP(true)
     } finally {
       setLoading(false)
@@ -198,7 +213,7 @@ export default function LandingPage() {
         </ul>
         <div className="nav-actions">
           <button onClick={() => handleAuthStart('signin')} className="btn-ghost">Sign In</button>
-          <button onClick={() => handleAuthStart('signup-buyer')} className="btn-solid">Get Started</button>
+          <button onClick={() => handleAuthStart('signup')} className="btn-solid">Get Started</button>
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
             <span className="t-moon">🌙</span>
             <span className="t-sun">☀️</span>
@@ -222,7 +237,7 @@ export default function LandingPage() {
           and brings you a deal — while you focus on your business.
         </p>
         <div className="hero-btns">
-          <button onClick={() => handleAuthStart('signup-buyer')} className="btn-hero-p">
+          <button onClick={() => handleAuthStart('signup')} className="btn-hero-p">
             Get Started Free →
           </button>
           <a href="#buying" className="btn-hero-s">See How It Works</a>
@@ -422,7 +437,7 @@ export default function LandingPage() {
                 Stop spending hours chasing fabric quotes. Your agent finds the best supplier, negotiates the price,
                 and brings you a deal to approve — in minutes, not days.
               </div>
-              <button onClick={() => handleAuthStart('signup-buyer')} className="cta-btn cta-btn-blue">
+              <button onClick={() => handleAuthStart('signup')} className="cta-btn cta-btn-blue">
                 Start as Buyer →
               </button>
             </div>
@@ -433,7 +448,7 @@ export default function LandingPage() {
                 Stop responding to random enquiries. Your agent filters serious buyers, quotes automatically from your
                 catalogue, and brings closed orders to your dashboard.
               </div>
-              <button onClick={() => handleAuthStart('signup-seller')} className="cta-btn cta-btn-green">
+              <button onClick={() => handleAuthStart('signup')} className="cta-btn cta-btn-green">
                 Start as Supplier →
               </button>
             </div>
