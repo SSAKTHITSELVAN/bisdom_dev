@@ -4,14 +4,12 @@ import { sendOTP, verifyOTP } from '../../api/auth'
 import { verifyGST } from '../../api/onboarding'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
-import {
-  Building2, Zap, Shield, Globe, TrendingUp, Users,
-  ArrowRight, Phone, Check, RefreshCw, Loader2, Sparkles
-} from 'lucide-react'
+import { Phone, Check, RefreshCw, Loader2, Building2, ArrowRight } from 'lucide-react'
+import './LandingPage.css'
 
 export default function LandingPage() {
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [authMode, setAuthMode] = useState(null) // 'signin' | 'signup'
+  const [authMode, setAuthMode] = useState(null) // 'signin' | 'signup-buyer' | 'signup-seller'
   const [step, setStep] = useState('phone') // 'phone' | 'otp' | 'gstin'
 
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -42,7 +40,33 @@ export default function LandingPage() {
     }
   }, [step, resendTimer, canResendOTP])
 
-  // Handle Sign In / Sign Up button click
+  // Theme toggle
+  useEffect(() => {
+    const saved = localStorage.getItem('bisdom-theme') || 'dark'
+    document.documentElement.setAttribute('data-theme', saved)
+  }, [])
+
+  const toggleTheme = () => {
+    const current = document.documentElement.getAttribute('data-theme')
+    const next = current === 'dark' ? 'light' : 'dark'
+    document.documentElement.setAttribute('data-theme', next)
+    localStorage.setItem('bisdom-theme', next)
+  }
+
+  // Reveal animation on scroll
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible') }),
+      { threshold: 0.07, rootMargin: '0px 0px -40px 0px' }
+    )
+    document.querySelectorAll('.reveal').forEach((el, i) => {
+      el.style.transitionDelay = `${(i % 4) * 0.08}s`
+      obs.observe(el)
+    })
+    return () => obs.disconnect()
+  }, [])
+
+  // Handle auth start
   const handleAuthStart = (mode) => {
     setAuthMode(mode)
     setShowAuthModal(true)
@@ -63,11 +87,7 @@ export default function LandingPage() {
     setLoading(true)
     try {
       const res = await sendOTP({ phone: phoneNumber })
-      if (res.data?.message) {
-        toast.success(res.data.message)
-      } else {
-        toast.success('OTP sent successfully!')
-      }
+      toast.success(res.data?.message || 'OTP sent successfully!')
       setStep('otp')
       setResendTimer(30)
       setCanResendOTP(false)
@@ -93,17 +113,13 @@ export default function LandingPage() {
 
       setAuth(access_token, user, user.onboarding_complete)
 
-      // Check if user needs onboarding
       if (!user.onboarding_complete) {
-        // For new users (sign up flow), ask for GSTIN
-        if (authMode === 'signup') {
-          setStep('gstin')
-        } else {
-          // Existing user not yet onboarded - send to onboarding
+        if (authMode === 'signin') {
           navigate('/onboarding')
+        } else {
+          setStep('gstin')
         }
       } else {
-        // Existing user already onboarded
         toast.success('Welcome back!')
         navigate('/workspace')
       }
@@ -160,184 +176,334 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-40 backdrop-blur-lg bg-white/5 border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Bisdom
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => handleAuthStart('signin')}
-              className="px-6 py-2.5 rounded-lg font-semibold text-sm transition-all hover:bg-white/10 border border-white/20"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => handleAuthStart('signup')}
-              className="px-6 py-2.5 rounded-lg font-semibold text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25"
-            >
-              Get Started
-            </button>
-          </div>
+    <div className="landing-page">
+      {/* Orbs */}
+      <div className="orb-canvas">
+        <div className="orb o1"></div>
+        <div className="orb o2"></div>
+        <div className="orb o3"></div>
+        <div className="orb o4"></div>
+        <div className="orb o5"></div>
+      </div>
+      <div className="grid-bg"></div>
+
+      {/* Nav */}
+      <nav id="main-nav">
+        <a href="#" className="nav-logo">Bis<span>dom</span></a>
+        <ul className="nav-links">
+          <li><a href="#problem">Problem</a></li>
+          <li><a href="#buying">For Buyers</a></li>
+          <li><a href="#selling">For Sellers</a></li>
+          <li><a href="#parallel">How AI Works</a></li>
+        </ul>
+        <div className="nav-actions">
+          <button onClick={() => handleAuthStart('signin')} className="btn-ghost">Sign In</button>
+          <button onClick={() => handleAuthStart('signup-buyer')} className="btn-solid">Get Started</button>
+          <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+            <span className="t-moon">🌙</span>
+            <span className="t-sun">☀️</span>
+            <div className="toggle-thumb"></div>
+          </button>
         </div>
-      </header>
+      </nav>
 
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-6 overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
+      {/* Hero */}
+      <section id="hero">
+        <div className="hero-badge">
+          <div className="badge-dot"></div>
+          AI-Powered B2B Commerce for Textile & Garments · India
         </div>
+        <h1 className="hero-h">
+          Your Business, Running<br />
+          <span className="accent">On Autopilot</span>
+        </h1>
+        <p className="hero-sub">
+          Post your fabric requirement once. Your Bisdom Agent finds suppliers, negotiates the best price,
+          and brings you a deal — while you focus on your business.
+        </p>
+        <div className="hero-btns">
+          <button onClick={() => handleAuthStart('signup-buyer')} className="btn-hero-p">
+            Get Started Free →
+          </button>
+          <a href="#buying" className="btn-hero-s">See How It Works</a>
+        </div>
+        <p className="hero-trust">
+          Trusted by garment exporters and fabric suppliers across Tirupur & Coimbatore
+        </p>
 
-        <div className="max-w-7xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 mb-8">
-            <Sparkles className="w-4 h-4 text-blue-400" />
-            <span className="text-sm font-medium text-blue-300">AI-Powered B2B Procurement Platform</span>
+        {/* Split Chat Preview */}
+        <div className="hero-preview">
+          {/* Buyer side */}
+          <div className="hero-chat-card reveal">
+            <div className="chat-header">
+              <div className="agent-avatar">RF</div>
+              <div>
+                <div className="agent-name">Raj Fabrics Agent</div>
+                <div className="agent-status">
+                  <div className="status-dot"></div>Active · Buyer
+                </div>
+              </div>
+            </div>
+            <div className="chat-body">
+              <div className="msg user">
+                <div className="msg-user-avatar">R</div>
+                <div className="msg-bubble">I need 500kg cotton fabric for export order</div>
+              </div>
+              <div className="msg ai">
+                <div className="msg-avatar">RF</div>
+                <div className="msg-bubble">
+                  Got it! What GSM are you looking for — 160, 180, or 200? And what's your target price per kg?
+                </div>
+              </div>
+              <div className="msg user">
+                <div className="msg-user-avatar">R</div>
+                <div className="msg-bubble">180 GSM, budget ₹175–185/kg, need by 15th</div>
+              </div>
+              <div className="msg ai">
+                <div className="msg-avatar">RF</div>
+                <div className="msg-bubble">
+                  Perfect. Searching suppliers in Coimbatore & Erode who can deliver 180 GSM, 500kg by 15th...
+                </div>
+              </div>
+              <div className="sys-msg">⚡ Talking to 4 suppliers now</div>
+              <div className="msg ai">
+                <div className="msg-avatar">RF</div>
+                <div className="approve-card">
+                  <div className="approve-title">✅ Best deal found!</div>
+                  <div className="approve-details">
+                    Sri Murugan Textiles · 180 GSM · ₹178/kg · Delivery by 13th
+                  </div>
+                  <div className="approve-btns">
+                    <button className="abtn-yes">✓ Approve Deal</button>
+                    <button className="abtn-no">Negotiate More</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <h1 className="text-6xl md:text-7xl font-bold mb-6 leading-tight">
-            Connect with
-            <span className="block bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Verified B2B Suppliers
-            </span>
-          </h1>
-
-          <p className="text-xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-            Automate your procurement with AI agents that find, negotiate, and close deals with
-            trusted suppliers across India. Save time, reduce costs, and scale faster.
-          </p>
-
-          <div className="flex items-center justify-center gap-4">
-            <button
-              onClick={() => handleAuthStart('signup')}
-              className="group px-8 py-4 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all shadow-xl shadow-blue-500/25 flex items-center gap-2"
-            >
-              Start Free Trial
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button
-              onClick={() => handleAuthStart('signin')}
-              className="px-8 py-4 rounded-xl font-semibold text-lg border border-white/20 hover:bg-white/10 transition-all"
-            >
-              Sign In
-            </button>
+          {/* Centre connector */}
+          <div className="hero-connector">
+            <div className="conn-line-r"></div>
+            <div className="neg-badge">⚡ Negotiating</div>
+            <div className="conn-line"></div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-8 mt-20 max-w-3xl mx-auto">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-blue-400 mb-2">10K+</div>
-              <div className="text-sm text-gray-400">Verified Suppliers</div>
+          {/* Seller side */}
+          <div className="hero-chat-card reveal">
+            <div className="chat-header">
+              <div className="agent-avatar">SM</div>
+              <div>
+                <div className="agent-name">Sri Murugan Textiles Agent</div>
+                <div className="agent-status">
+                  <div className="status-dot"></div>Active · Supplier
+                </div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-purple-400 mb-2">50K+</div>
-              <div className="text-sm text-gray-400">Deals Closed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-pink-400 mb-2">95%</div>
-              <div className="text-sm text-gray-400">Success Rate</div>
+            <div className="chat-body">
+              <div className="sys-msg">📩 New RFQ received from Raj Fabrics Agent</div>
+              <div className="msg ai">
+                <div className="msg-avatar">SM</div>
+                <div className="msg-bubble">
+                  RFQ: 500kg 180 GSM cotton, delivery Chennai by 15th. Checking your catalogue...
+                </div>
+              </div>
+              <div className="msg ai">
+                <div className="msg-avatar">SM</div>
+                <div className="msg-bubble">
+                  Your stock: 800kg 180 GSM available. Sending quote at ₹182/kg (your floor: ₹175)
+                </div>
+              </div>
+              <div className="sys-msg">💬 Buyer agent counter-offered ₹176/kg</div>
+              <div className="msg ai">
+                <div className="msg-avatar">SM</div>
+                <div className="msg-bubble">
+                  Below floor price. Counter-offering ₹178/kg with free delivery to Chennai. Sending now...
+                </div>
+              </div>
+              <div className="msg ai">
+                <div className="deal-closed">
+                  <div className="deal-closed-title">🎉 Deal Closed!</div>
+                  <div className="deal-closed-detail">₹178/kg · 500kg · Delivery Chennai · 13th</div>
+                  <div className="deal-closed-detail" style={{ marginTop: '4px' }}>
+                    Order value: ₹89,000 · Margin maintained ✓
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 px-6 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Why Choose Bisdom?</h2>
-            <p className="text-gray-400 text-lg">AI-powered features that transform your procurement process</p>
-          </div>
+      <div className="divider"></div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <FeatureCard
-              icon={<Zap className="w-8 h-8" />}
-              title="AI-Powered Matching"
-              description="Our AI instantly finds the perfect suppliers based on your requirements, location, and budget."
-              gradient="from-yellow-500 to-orange-500"
-            />
-            <FeatureCard
-              icon={<Users className="w-8 h-8" />}
-              title="Automated Negotiations"
-              description="AI agents negotiate on your behalf 24/7, securing the best deals while you focus on your business."
-              gradient="from-blue-500 to-cyan-500"
-            />
-            <FeatureCard
-              icon={<Shield className="w-8 h-8" />}
-              title="GSTIN Verified"
-              description="All suppliers are verified through GSTIN, ensuring you work with legitimate, trusted businesses."
-              gradient="from-green-500 to-emerald-500"
-            />
-            <FeatureCard
-              icon={<Globe className="w-8 h-8" />}
-              title="Pan-India Network"
-              description="Access thousands of verified suppliers across all states and industries in India."
-              gradient="from-purple-500 to-pink-500"
-            />
-            <FeatureCard
-              icon={<TrendingUp className="w-8 h-8" />}
-              title="Smart Analytics"
-              description="Track deals, monitor negotiations, and get insights to optimize your procurement strategy."
-              gradient="from-red-500 to-rose-500"
-            />
-            <FeatureCard
-              icon={<Check className="w-8 h-8" />}
-              title="Instant Deal Closure"
-              description="Close deals in hours, not weeks. Our AI handles the entire process from discovery to confirmation."
-              gradient="from-indigo-500 to-violet-500"
-            />
+      {/* Problem Section */}
+      <section id="problem" className="s-pad">
+        <div className="s-inner">
+          <div className="reveal">
+            <p className="s-label">The Problem</p>
+            <h2 className="s-title">This is how textile trade works today</h2>
+            <p className="s-sub">
+              Every buyer and supplier in Tirupur knows this pain. Bisdom is built to end it.
+            </p>
+          </div>
+          <div className="chaos-grid">
+            <div className="chaos-card reveal">
+              <div className="chaos-emoji">📱</div>
+              <div className="chaos-title">Calling 15 suppliers for one order</div>
+              <div className="chaos-text">
+                Half don't pick up. Three say they'll call back. Two quote the wrong GSM. One good supplier — found after 2 hours.
+              </div>
+              <div className="chaos-tag">⏳ 2–3 hours wasted per order</div>
+            </div>
+            <div className="chaos-card reveal">
+              <div className="chaos-emoji">💬</div>
+              <div className="chaos-title">WhatsApp chaos with no follow-up</div>
+              <div className="chaos-text">
+                RFQ sent to 10 suppliers on WhatsApp. 4 reply. 2 quote. 1 ghosts after agreeing. You lose the order to a competitor who moved faster.
+              </div>
+              <div className="chaos-tag">❌ Orders lost to slow response</div>
+            </div>
+            <div className="chaos-card reveal">
+              <div className="chaos-emoji">📊</div>
+              <div className="chaos-title">Price comparison in an Excel sheet</div>
+              <div className="chaos-text">
+                Different GSM, different delivery dates, different payment terms — all dumped in a spreadsheet. No easy way to compare apples to apples.
+              </div>
+              <div className="chaos-tag">😤 Hours of manual work</div>
+            </div>
+            <div className="chaos-card reveal">
+              <div className="chaos-emoji">🔁</div>
+              <div className="chaos-title">Suppliers answering irrelevant RFQs</div>
+              <div className="chaos-text">
+                Your sales team spends half the day responding to buyers who want 50kg when your MOQ is 500kg. Real leads get missed in the noise.
+              </div>
+              <div className="chaos-tag">💸 Sales time on wrong leads</div>
+            </div>
+            <div className="chaos-card reveal">
+              <div className="chaos-emoji">🤝</div>
+              <div className="chaos-title">Negotiation by phone, nothing on record</div>
+              <div className="chaos-text">
+                Price agreed over call. Supplier ships. Invoice says different rate. Dispute. No written trail. Relationship damaged.
+              </div>
+              <div className="chaos-tag">⚠️ No proof, no protection</div>
+            </div>
+            <div className="chaos-card reveal">
+              <div className="chaos-emoji">🏭</div>
+              <div className="chaos-title">Good suppliers, impossible to find</div>
+              <div className="chaos-text">
+                The best fabric supplier in Erode has no website, no presence — just word of mouth. Buyers in Chennai never find them. Both miss out.
+              </div>
+              <div className="chaos-tag">🔍 Hidden market, hidden money</div>
+            </div>
           </div>
         </div>
       </section>
+
+      <div className="divider"></div>
 
       {/* CTA Section */}
-      <section className="py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 backdrop-blur-xl border border-white/10 rounded-3xl p-12">
-            <h2 className="text-4xl font-bold mb-4">Ready to Transform Your Procurement?</h2>
-            <p className="text-gray-300 text-lg mb-8">
-              Join thousands of businesses already saving time and money with Bisdom.
+      <section id="cta" className="s-pad">
+        <div className="s-inner">
+          <div className="reveal" style={{ textAlign: 'center' }}>
+            <p className="s-label" style={{ textAlign: 'center' }}>Get Started</p>
+            <h2 className="s-title" style={{ maxWidth: '100%', textAlign: 'center' }}>
+              Ready to stop chasing and start closing?
+            </h2>
+            <p className="s-sub" style={{ maxWidth: '500px', margin: '14px auto 0', textAlign: 'center' }}>
+              Join as a buyer, a supplier, or both. Your Company Agent will be ready in minutes.
             </p>
-            <button
-              onClick={() => handleAuthStart('signup')}
-              className="group px-10 py-4 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all shadow-xl shadow-blue-500/25 inline-flex items-center gap-2"
-            >
-              Get Started for Free
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
+          </div>
+          <div className="cta-cards">
+            <div className="cta-card buyer reveal">
+              <div className="cta-card-icon">🛒</div>
+              <div className="cta-card-title">I'm a Buyer</div>
+              <div className="cta-card-text">
+                Stop spending hours chasing fabric quotes. Your agent finds the best supplier, negotiates the price,
+                and brings you a deal to approve — in minutes, not days.
+              </div>
+              <button onClick={() => handleAuthStart('signup-buyer')} className="cta-btn cta-btn-blue">
+                Start as Buyer →
+              </button>
+            </div>
+            <div className="cta-card seller reveal">
+              <div className="cta-card-icon">🏭</div>
+              <div className="cta-card-title">I'm a Supplier</div>
+              <div className="cta-card-text">
+                Stop responding to random enquiries. Your agent filters serious buyers, quotes automatically from your
+                catalogue, and brings closed orders to your dashboard.
+              </div>
+              <button onClick={() => handleAuthStart('signup-seller')} className="cta-btn cta-btn-green">
+                Start as Supplier →
+              </button>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer>
+        <div className="footer-top">
+          <div>
+            <div className="footer-logo-text">
+              Bis<span>dom</span>
+            </div>
+            <div className="footer-desc">
+              Helping textile and garment businesses discover meaningful opportunities — less noise, better deals, faster trade.
+            </div>
+            <div className="footer-socials">
+              <a className="soc-btn" href="#" title="LinkedIn">💼</a>
+              <a className="soc-btn" href="#" title="X">𝕏</a>
+              <a className="soc-btn" href="mailto:hello@bisdom.in" title="Email">✉️</a>
+            </div>
+          </div>
+          <div>
+            <div className="footer-col-title">Product</div>
+            <ul className="footer-links">
+              <li><a href="#buying">For Buyers</a></li>
+              <li><a href="#selling">For Suppliers</a></li>
+              <li><a href="#parallel">How AI Works</a></li>
+            </ul>
+          </div>
+          <div>
+            <div className="footer-col-title">Company</div>
+            <ul className="footer-links">
+              <li><a href="#">About Bisdom</a></li>
+              <li><a href="#">Contact</a></li>
+              <li><a href="#">Privacy Policy</a></li>
+              <li><a href="#">Terms of Service</a></li>
+            </ul>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <div className="footer-copy">
+            © 2025 Bisdom · Chennai, India · Built for Indian Textile & Garment Trade
+          </div>
+          <div className="footer-legal">
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+          </div>
+        </div>
+      </footer>
 
       {/* Auth Modal */}
       {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-white/10 rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-            >
-              ✕
-            </button>
+        <div className="auth-modal-overlay" onClick={closeModal}>
+          <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
+            <button onClick={closeModal} className="modal-close">✕</button>
 
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
+            <div className="modal-header">
+              <div className="modal-icon">
                 {step === 'phone' && <Phone className="w-8 h-8" />}
                 {step === 'otp' && <Check className="w-8 h-8" />}
                 {step === 'gstin' && <Building2 className="w-8 h-8" />}
               </div>
-              <h2 className="text-2xl font-bold">
-                {authMode === 'signin' ? 'Sign In' : 'Create Account'}
+              <h2 className="modal-title">
+                {authMode === 'signin' && 'Sign In'}
+                {authMode === 'signup-buyer' && 'Create Buyer Account'}
+                {authMode === 'signup-seller' && 'Create Supplier Account'}
               </h2>
-              <p className="text-gray-400 mt-2">
+              <p className="modal-subtitle">
                 {step === 'phone' && 'Enter your mobile number to continue'}
                 {step === 'otp' && 'Enter the OTP sent to your phone'}
                 {step === 'gstin' && 'Verify your business with GSTIN'}
@@ -346,25 +512,21 @@ export default function LandingPage() {
 
             {/* Phone Step */}
             {step === 'phone' && (
-              <form onSubmit={handlePhoneSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-300">Mobile Number</label>
+              <form onSubmit={handlePhoneSubmit} className="modal-form">
+                <div className="form-group">
+                  <label className="form-label">Mobile Number</label>
                   <input
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     placeholder="Enter 10-digit number"
-                    className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-blue-500 focus:outline-none transition-colors"
+                    className="form-input"
                     disabled={loading}
                     autoFocus
                   />
-                  <p className="text-xs text-gray-500 mt-1">Starting with 6-9</p>
+                  <p className="form-hint">Starting with 6-9</p>
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
+                <button type="submit" disabled={loading} className="btn-submit">
                   {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -382,26 +544,20 @@ export default function LandingPage() {
 
             {/* OTP Step */}
             {step === 'otp' && (
-              <form onSubmit={handleOTPSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-300">
-                    OTP sent to {phoneNumber}
-                  </label>
+              <form onSubmit={handleOTPSubmit} className="modal-form">
+                <div className="form-group">
+                  <label className="form-label">OTP sent to {phoneNumber}</label>
                   <input
                     type="text"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="Enter 6-digit OTP"
-                    className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-blue-500 focus:outline-none transition-colors text-center text-2xl tracking-widest"
+                    className="form-input otp-input"
                     disabled={loading}
                     autoFocus
                   />
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
+                <button type="submit" disabled={loading} className="btn-submit">
                   {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -414,21 +570,19 @@ export default function LandingPage() {
                     </>
                   )}
                 </button>
-                <div className="text-center">
+                <div className="resend-section">
                   {canResendOTP ? (
                     <button
                       type="button"
                       onClick={handleResendOTP}
                       disabled={loading}
-                      className="text-sm text-blue-400 hover:text-blue-300 font-medium flex items-center justify-center gap-1 mx-auto"
+                      className="resend-btn"
                     >
                       <RefreshCw className="w-4 h-4" />
                       Resend OTP
                     </button>
                   ) : (
-                    <p className="text-sm text-gray-500">
-                      Resend OTP in {resendTimer}s
-                    </p>
+                    <p className="resend-timer">Resend OTP in {resendTimer}s</p>
                   )}
                 </div>
               </form>
@@ -436,27 +590,21 @@ export default function LandingPage() {
 
             {/* GSTIN Step */}
             {step === 'gstin' && (
-              <form onSubmit={handleGSTINSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-300">
-                    Business GSTIN
-                  </label>
+              <form onSubmit={handleGSTINSubmit} className="modal-form">
+                <div className="form-group">
+                  <label className="form-label">Business GSTIN</label>
                   <input
                     type="text"
                     value={gstin}
                     onChange={(e) => setGstin(e.target.value.toUpperCase().slice(0, 15))}
                     placeholder="29ABCDE1234F1Z5"
-                    className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-blue-500 focus:outline-none transition-colors uppercase"
+                    className="form-input gstin-input"
                     disabled={loading}
                     autoFocus
                   />
-                  <p className="text-xs text-gray-500 mt-1">15-character GST identification number</p>
+                  <p className="form-hint">15-character GST identification number</p>
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
+                <button type="submit" disabled={loading} className="btn-submit">
                   {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -474,18 +622,6 @@ export default function LandingPage() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function FeatureCard({ icon, title, description, gradient }) {
-  return (
-    <div className="group relative p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all hover:-translate-y-1">
-      <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-        {icon}
-      </div>
-      <h3 className="text-xl font-bold mb-2">{title}</h3>
-      <p className="text-gray-400 leading-relaxed">{description}</p>
     </div>
   )
 }
