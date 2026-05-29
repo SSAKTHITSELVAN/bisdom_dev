@@ -927,7 +927,7 @@ async def list_all_users(
             "id": user.id,
             "phone_number": user.phone,
             "is_verified": user.is_verified,
-            "onboarding_complete": user.is_onboarded,
+            "is_onboarded": user.is_onboarded,
             "created_at": user.created_at.isoformat() if user.created_at else None,
             "profile": {
                 "trade_name": profile.trade_name if profile else None,

@@ -21,14 +21,14 @@ export default function LandingPage() {
   const [resendTimer, setResendTimer] = useState(30)
 
   const navigate = useNavigate()
-  const { setAuth, token, user } = useAuthStore()
+  const { setAuth, token, isOnboarded } = useAuthStore()
 
   // Redirect if already logged in
   useEffect(() => {
-    if (token && user?.is_onboarded) {
+    if (token && isOnboarded) {
       navigate('/workspace', { replace: true })
     }
-  }, [token, user, navigate])
+  }, [token, isOnboarded, navigate])
 
   // Resend OTP countdown
   useEffect(() => {
