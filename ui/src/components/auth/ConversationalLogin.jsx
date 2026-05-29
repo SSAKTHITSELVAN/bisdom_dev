@@ -61,12 +61,21 @@ export default function ConversationalLogin() {
     if (initialized) return
     setInitialized(true)
 
-    // Initial welcome - ask to choose
+    // Initial welcome - default to signup
     const timeouts = [
       setTimeout(() => addBotMessage("👋 Welcome to Bisdom!"), 500),
       setTimeout(() => addBotMessage("I'm your AI assistant, here to help you connect with verified B2B suppliers across India."), 1600),
-      setTimeout(() => addBotMessage("Are you here to sign in or sign up?"), 3200)
+      setTimeout(() => addBotMessage("Let's create your account."), 3200),
+      setTimeout(() => addBotMessage("What's your mobile number?"), 4000),
+      setTimeout(() => addBotMessage("(Enter 10 digits, starting with 6-9)"), 4800)
     ]
+
+    // Automatically set to signup mode and skip choice
+    setTimeout(() => {
+      setAuthType('signup')
+      setShowChoiceButtons(false)
+      setCurrentStep('phone')
+    }, 3000)
 
     return () => timeouts.forEach(t => clearTimeout(t))
   }, [])
@@ -191,30 +200,22 @@ export default function ConversationalLogin() {
           setCurrentStep('gstin')
           setLoading(false)
         }
-        // For Sign In (existing user) - go to workspace
-        else if (authType === 'signin' && isOnboarded) {
+        // If user is already onboarded (existing user) - go to workspace
+        else if (isOnboarded) {
           setTimeout(() => addBotMessage("Welcome back to Bisdom!"), 1000)
           setTimeout(() => {
             setLoading(false)
             // Force a small delay to ensure hydration completes
             setTimeout(() => navigate('/workspace', { replace: true }), 100)
-          }, 2500)
+          }, 2000)
         }
-        // Edge case: signin but not onboarded (send to onboarding)
-        else if (authType === 'signin' && !isOnboarded) {
+        // If user is not onboarded (incomplete signup) - go to onboarding
+        else {
           setTimeout(() => addBotMessage("Let's complete your profile setup..."), 1000)
           setTimeout(() => {
             setLoading(false)
             setTimeout(() => navigate('/onboarding', { replace: true }), 100)
-          }, 2500)
-        }
-        // Edge case: signup but already onboarded (send to workspace)
-        else {
-          setTimeout(() => addBotMessage("Welcome back to Bisdom!"), 1000)
-          setTimeout(() => {
-            setLoading(false)
-            setTimeout(() => navigate('/workspace', { replace: true }), 100)
-          }, 2500)
+          }, 2000)
         }
       } catch (err) {
         setLoading(false)
@@ -538,75 +539,7 @@ export default function ConversationalLogin() {
             </div>
           )}
 
-          {/* Choice Buttons */}
-          {showChoiceButtons && currentStep === 'choose' && messages.length >= 3 && (
-            <div style={{
-              display: 'flex',
-              gap: 16,
-              justifyContent: 'center',
-              marginTop: 32,
-              animation: 'slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-              animationDelay: '0.3s',
-              opacity: 0,
-              animationFillMode: 'forwards'
-            }}>
-              <button
-                onClick={() => handleChoice('signin')}
-                style={{
-                  padding: '16px 32px',
-                  borderRadius: 16,
-                  background: 'rgba(255,255,255,0.08)',
-                  border: '2px solid rgba(255,255,255,0.2)',
-                  color: '#fff',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  fontFamily: 'inherit',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.12)'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
-                }}
-              >
-                🔑 Sign In
-              </button>
-
-              <button
-                onClick={() => handleChoice('signup')}
-                style={{
-                  padding: '16px 32px',
-                  borderRadius: 16,
-                  background: 'linear-gradient(135deg, #054E94 0%, #1A8FFF 100%)',
-                  border: '2px solid rgba(255,255,255,0.2)',
-                  color: '#fff',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  fontFamily: 'inherit',
-                  boxShadow: '0 6px 20px rgba(96,165,250,0.4)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)'
-                  e.currentTarget.style.boxShadow = '0 8px 28px rgba(96,165,250,0.5)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0) scale(1)'
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(96,165,250,0.4)'
-                }}
-              >
-                ✨ Sign Up
-              </button>
-            </div>
-          )}
+          {/* Choice Buttons - Hidden since we default to signup */}
 
           <div ref={messagesEndRef} />
         </div>

@@ -25,7 +25,7 @@ export default function LandingPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (token && user?.onboarding_complete) {
+    if (token && user?.is_onboarded) {
       navigate('/workspace', { replace: true })
     }
   }, [token, user, navigate])
@@ -118,11 +118,11 @@ export default function LandingPage() {
     setLoading(true)
     try {
       const res = await verifyOTP({ phone: phoneNumber, otp })
-      const { access_token, user } = res.data
+      const { access_token, is_onboarded, is_new_user } = res.data
 
-      setAuth(access_token, user, user.onboarding_complete)
+      setAuth(access_token, null, is_onboarded)
 
-      if (!user.onboarding_complete) {
+      if (!is_onboarded) {
         if (authMode === 'signin') {
           navigate('/onboarding')
         } else {

@@ -258,12 +258,12 @@ export default function AdminUsers() {
                     borderRadius: 6,
                     fontSize: 10,
                     fontWeight: 700,
-                    background: user.onboarding_complete ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                    color: user.onboarding_complete ? '#34d399' : '#f87171',
-                    border: user.onboarding_complete ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(239,68,68,0.3)',
+                    background: user.is_onboarded ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                    color: user.is_onboarded ? '#34d399' : '#f87171',
+                    border: user.is_onboarded ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(239,68,68,0.3)',
                     textTransform: 'uppercase'
                   }}>
-                    {user.onboarding_complete ? 'Active' : 'Pending'}
+                    {user.is_onboarded ? 'Active' : 'Pending'}
                   </span>
                 </div>
               </div>
