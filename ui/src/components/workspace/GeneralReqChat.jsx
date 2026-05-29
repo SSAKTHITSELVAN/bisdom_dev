@@ -52,7 +52,14 @@ export default function GeneralReqChat({ req, leads = [] }) {
       .finally(() => setLoading(false))
   }, [req?.id])
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }) }, [messages, sending])
+  // Auto-scroll to bottom when messages change - like WhatsApp
+  useEffect(() => {
+    if (bottomRef.current) {
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      }, 100)
+    }
+  }, [messages.length, sending])
 
   const send = async (text) => {
     if (!text.trim() || sending || !req) return

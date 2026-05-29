@@ -89,7 +89,14 @@ export default function NewRequirementChat() {
     return getQuickReplies(lastAi?.content)
   }, [messages, loading, isComplete])
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }) }, [messages, loading])
+  // Auto-scroll to bottom when messages change - like WhatsApp
+  useEffect(() => {
+    if (bottomRef.current) {
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      }, 100)
+    }
+  }, [messages.length, loading]) // Track length to avoid unnecessary scrolls
 
   const send = async (text) => {
     if (!text.trim() || loading) return

@@ -215,7 +215,16 @@ export default function ConversationView({ leadId }) {
   }
 
   useEffect(() => { setLoading(true); setConv(null); setLead(null); fetch() }, [leadId])
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }) }, [conv?.messages])
+
+  // Auto-scroll to bottom when messages change - like WhatsApp
+  useEffect(() => {
+    if (bottomRef.current) {
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      }, 100)
+    }
+  }, [conv?.messages?.length]) // Track length to avoid unnecessary scrolls
 
   // Auto-refresh while conversation is being initiated
   useEffect(() => {
