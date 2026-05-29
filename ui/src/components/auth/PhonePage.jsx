@@ -18,7 +18,7 @@ export default function PhonePage() {
     }
     setLoading(true)
     try {
-      await sendOTP(phone)
+      await sendOTP({ phone })
       toast.success('OTP sent!')
       navigate('/verify-otp', { state: { phone } })
     } catch (err) {

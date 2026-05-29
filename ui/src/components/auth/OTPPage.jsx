@@ -47,7 +47,7 @@ export default function OTPPage() {
     if (code.length < 6) { toast.error('Enter 6-digit OTP'); return }
     setLoading(true)
     try {
-      const res = await verifyOTP(phone, code)
+      const res = await verifyOTP({ phone, otp: code })
       const { access_token, is_new_user, is_onboarded } = res.data
       localStorage.setItem('bisdom_token', access_token)
       setAuth(access_token, { phone }, is_onboarded)
@@ -66,7 +66,7 @@ export default function OTPPage() {
   const handleResend = async () => {
     if (resendTimer > 0) return
     try {
-      await sendOTP(phone)
+      await sendOTP({ phone })
       toast.success('OTP resent!')
       setResendTimer(30)
     } catch { toast.error('Failed to resend') }

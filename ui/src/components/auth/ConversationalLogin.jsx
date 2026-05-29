@@ -107,7 +107,7 @@ export default function ConversationalLogin() {
 
     setLoading(true)
     try {
-      await sendOTP(phone)
+      await sendOTP({ phone })
       addBotMessage("✅ New OTP sent!")
       setTimeout(() => addBotMessage("📱 Please check your SMS."), 800)
       // Restart timer
@@ -142,8 +142,8 @@ export default function ConversationalLogin() {
       setPhone(phoneDigits)
 
       try {
-        // Send OTP without +91 prefix (API expects plain 10 digits)
-        await sendOTP(phoneDigits)
+        // Send OTP
+        await sendOTP({ phone: phoneDigits })
         addBotMessage(`✅ Perfect! I've sent a 6-digit OTP to +91 ${phoneDigits.slice(0,5)}*****`)
         setTimeout(() => addBotMessage("📱 Please check your SMS and enter the OTP below:"), 1000)
         setTimeout(() => addBotMessage("💡 Didn't receive it? You can resend after 30 seconds."), 2000)
@@ -169,8 +169,8 @@ export default function ConversationalLogin() {
       }
 
       try {
-        // Verify OTP with plain phone number (no +91 prefix)
-        const response = await verifyOTP(phone, otpDigits)
+        // Verify OTP
+        const response = await verifyOTP({ phone, otp: otpDigits })
         const token = response.data.access_token
         const isOnboarded = response.data.is_onboarded
 
