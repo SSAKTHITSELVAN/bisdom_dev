@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, desc
+from sqlalchemy import select, or_, and_, desc
 from app.db.base import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.lead import Lead
 from app.models.profile import AgenticProfile
-from app.schemas.conversation import LeadOut
+from app.models.requirement import Requirement
+from app.schemas.conversation import LeadOut, ActionNeededOut
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
 
@@ -96,6 +97,101 @@ async def list_leads_as_supplier(
             }
 
     return leads
+
+
+@router.get("/actions-needed", response_model=list[ActionNeededOut])
+async def get_actions_needed(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get all leads where the current user needs to take action."""
+    from sqlalchemy.orm import selectinload
+
+    actions = []
+
+    # As supplier: leads awaiting my confirmation (buyer_shortlisted)
+    supplier_pending = await db.execute(
+        select(Lead)
+        .options(selectinload(Lead.requirement), selectinload(Lead.buyer).selectinload(User.profile))
+        .where(
+            Lead.supplier_id == current_user.id,
+            Lead.status == "buyer_shortlisted",
+        )
+        .order_by(desc(Lead.updated_at))
+    )
+    for lead in supplier_pending.scalars().all():
+        buyer_name = None
+        if lead.buyer and lead.buyer.profile:
+            buyer_name = lead.buyer.profile.trade_name
+        actions.append(ActionNeededOut(
+            lead_id=lead.id,
+            requirement_id=lead.requirement_id,
+            counterpart_name=buyer_name,
+            product=lead.requirement.product if lead.requirement else None,
+            action_type="supplier_confirm",
+            status=lead.status,
+            current_offer_price=lead.current_offer_price,
+            fit_score=lead.fit_score,
+            created_at=lead.created_at,
+            updated_at=lead.updated_at,
+        ))
+
+    # As buyer: leads where AI paused for my decision
+    buyer_decide = await db.execute(
+        select(Lead)
+        .options(selectinload(Lead.requirement), selectinload(Lead.supplier).selectinload(User.profile))
+        .where(
+            Lead.buyer_id == current_user.id,
+            Lead.ai_paused_for_buyer == True,
+        )
+        .order_by(desc(Lead.updated_at))
+    )
+    for lead in buyer_decide.scalars().all():
+        supplier_name = None
+        if lead.supplier and lead.supplier.profile:
+            supplier_name = lead.supplier.profile.trade_name
+        actions.append(ActionNeededOut(
+            lead_id=lead.id,
+            requirement_id=lead.requirement_id,
+            counterpart_name=supplier_name,
+            product=lead.requirement.product if lead.requirement else None,
+            action_type="buyer_decide",
+            status=lead.status,
+            current_offer_price=lead.current_offer_price,
+            fit_score=lead.fit_score,
+            created_at=lead.created_at,
+            updated_at=lead.updated_at,
+        ))
+
+    # As supplier: leads where AI paused for my input
+    supplier_input = await db.execute(
+        select(Lead)
+        .options(selectinload(Lead.requirement), selectinload(Lead.buyer).selectinload(User.profile))
+        .where(
+            Lead.supplier_id == current_user.id,
+            Lead.ai_paused_for_supplier == True,
+            Lead.status != "buyer_shortlisted",  # already handled above
+        )
+        .order_by(desc(Lead.updated_at))
+    )
+    for lead in supplier_input.scalars().all():
+        buyer_name = None
+        if lead.buyer and lead.buyer.profile:
+            buyer_name = lead.buyer.profile.trade_name
+        actions.append(ActionNeededOut(
+            lead_id=lead.id,
+            requirement_id=lead.requirement_id,
+            counterpart_name=buyer_name,
+            product=lead.requirement.product if lead.requirement else None,
+            action_type="response_needed",
+            status=lead.status,
+            current_offer_price=lead.current_offer_price,
+            fit_score=lead.fit_score,
+            created_at=lead.created_at,
+            updated_at=lead.updated_at,
+        ))
+
+    return actions
 
 
 @router.get("/{lead_id}", response_model=LeadOut)

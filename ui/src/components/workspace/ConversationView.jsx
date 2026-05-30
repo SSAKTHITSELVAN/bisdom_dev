@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { getConvByLead, sendMessage, toggleChat, buyerDecision, supplierEscalation, suggestResponse } from '@/api/conversations'
+import { getConvByLead, sendMessage, toggleChat, buyerDecision, supplierEscalation, supplierConfirm, suggestResponse } from '@/api/conversations'
 import { getLead, getCounterpart } from '@/api/leads'
 import { useWorkspaceStore } from '@/store/workspaceStore'
+import { useAuthStore } from '@/store/authStore'
 import StatusBadge from '@/components/ui/StatusBadge'
 import Spinner from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
 import {
   Send, Bot, User, AlertTriangle, CheckCircle,
   RefreshCw, ChevronLeft, ToggleLeft, ToggleRight, X,
-  Sparkles, MessageSquare, Zap, Package
+  Sparkles, MessageSquare, Zap, Package, ThumbsUp, ThumbsDown, Clock, Shield
 } from 'lucide-react'
 
 const ROLES = {
@@ -191,6 +192,253 @@ function ActionPanel({ lead, onClose, onRefresh }) {
   )
 }
 
+function ConfirmationBar({ lead, isBuyer, onRefresh }) {
+  const [loading, setLoading] = useState(false)
+
+  if (!lead) return null
+
+  const handleBuyerShortlist = async () => {
+    setLoading(true)
+    try {
+      await buyerDecision({ lead_id: lead.id, action: 'shortlist' })
+      toast.success('Supplier notified — awaiting their confirmation')
+      onRefresh()
+    } catch { toast.error('Failed to shortlist') }
+    finally { setLoading(false) }
+  }
+
+  const handleBuyerSkip = async () => {
+    setLoading(true)
+    try {
+      await buyerDecision({ lead_id: lead.id, action: 'decline' })
+      toast.success('Skipped — moving to next supplier')
+      onRefresh()
+    } catch { toast.error('Failed') }
+    finally { setLoading(false) }
+  }
+
+  const handleSupplierAccept = async () => {
+    setLoading(true)
+    try {
+      await supplierConfirm({ lead_id: lead.id, action: 'accept' })
+      toast.success('Confirmed! Chat is now open.')
+      onRefresh()
+    } catch { toast.error('Failed to confirm') }
+    finally { setLoading(false) }
+  }
+
+  const handleSupplierDecline = async () => {
+    setLoading(true)
+    try {
+      await supplierConfirm({ lead_id: lead.id, action: 'decline' })
+      toast.success('Declined')
+      onRefresh()
+    } catch { toast.error('Failed') }
+    finally { setLoading(false) }
+  }
+
+  // Buyer: show shortlist option when AI negotiation has produced an offer
+  if (isBuyer && ['offer_ready', 'negotiating', 'agent_initiated'].includes(lead.status)) {
+    return (
+      <div style={{
+        margin: '12px 24px 0', padding: '14px 18px',
+        background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.08))',
+        border: '1px solid rgba(16,185,129,0.2)',
+        borderRadius: 12, display: 'flex', alignItems: 'center', gap: 14
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+          background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <Shield size={16} color="#10b981"/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>
+            Shortlist this supplier?
+          </p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: '2px 0 0' }}>
+            Confirm to notify the supplier and proceed to direct deal
+          </p>
+        </div>
+        <button disabled={loading} onClick={handleBuyerShortlist}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+            background: 'linear-gradient(135deg, #059669, #10b981)', border: 'none',
+            borderRadius: 8, cursor: 'pointer', fontFamily: 'Inter,system-ui,sans-serif'
+          }}>
+          <ThumbsUp size={13} color="#fff"/>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Confirm</span>
+        </button>
+        <button disabled={loading} onClick={handleBuyerSkip}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 8, cursor: 'pointer', fontFamily: 'Inter,system-ui,sans-serif'
+          }}>
+          <X size={13} color="rgba(255,255,255,0.5)"/>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Skip</span>
+        </button>
+      </div>
+    )
+  }
+
+  // Buyer: waiting for supplier confirmation
+  if (isBuyer && lead.status === 'buyer_shortlisted') {
+    return (
+      <div style={{
+        margin: '12px 24px 0', padding: '14px 18px',
+        background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
+        borderRadius: 12, display: 'flex', alignItems: 'center', gap: 14
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+          background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <Clock size={16} color="#f59e0b"/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', margin: 0 }}>
+            Awaiting supplier confirmation
+          </p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>
+            You've shortlisted this supplier. Waiting for them to accept.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Supplier: buyer wants to work with you
+  if (!isBuyer && lead.status === 'buyer_shortlisted') {
+    return (
+      <div style={{
+        margin: '12px 24px 0', padding: '14px 18px',
+        background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.08))',
+        border: '1px solid rgba(139,92,246,0.25)',
+        borderRadius: 12, display: 'flex', alignItems: 'center', gap: 14
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+          background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <Zap size={16} color="#a78bfa"/>
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>
+            Buyer wants to work with you!
+          </p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: '2px 0 0' }}>
+            Accept to start direct communication and finalize the deal
+          </p>
+        </div>
+        <button disabled={loading} onClick={handleSupplierAccept}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+            background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)', border: 'none',
+            borderRadius: 8, cursor: 'pointer', fontFamily: 'Inter,system-ui,sans-serif'
+          }}>
+          <ThumbsUp size={13} color="#fff"/>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Accept</span>
+        </button>
+        <button disabled={loading} onClick={handleSupplierDecline}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 8, cursor: 'pointer', fontFamily: 'Inter,system-ui,sans-serif'
+          }}>
+          <ThumbsDown size={13} color="rgba(255,255,255,0.5)"/>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Decline</span>
+        </button>
+      </div>
+    )
+  }
+
+  // Confirmed state
+  if (lead.status === 'supplier_confirmed') {
+    return (
+      <div style={{
+        margin: '12px 24px 0', padding: '12px 18px',
+        background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
+        borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12
+      }}>
+        <CheckCircle size={18} color="#10b981"/>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>
+          Deal Active — Both parties confirmed. Chat directly to finalize terms.
+        </span>
+      </div>
+    )
+  }
+
+  // Declined by supplier
+  if (lead.status === 'supplier_declined') {
+    return (
+      <div style={{
+        margin: '12px 24px 0', padding: '12px 18px',
+        background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)',
+        borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12
+      }}>
+        <X size={18} color="#ef4444"/>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>
+          {isBuyer ? 'Supplier declined — try your next match' : 'You declined this lead'}
+        </span>
+      </div>
+    )
+  }
+
+  // Deal closed
+  if (lead.status === 'deal_closed') {
+    return (
+      <div style={{
+        margin: '12px 24px 0', padding: '12px 18px',
+        background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)',
+        borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12
+      }}>
+        <CheckCircle size={18} color="#10b981"/>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>
+          Deal Closed — Coordinate delivery and payment below.
+        </span>
+      </div>
+    )
+  }
+
+  return null
+}
+
+function ChatSummaryStrip({ lead, isBuyer, counterpart }) {
+  if (!lead) return null
+
+  let summary = ''
+  if (isBuyer) {
+    const parts = []
+    if (lead.current_offer_price) parts.push(`₹${lead.current_offer_price.toLocaleString()}/unit`)
+    if (lead.current_lead_time) parts.push(`${lead.current_lead_time}d delivery`)
+    if (counterpart?.product_categories?.length) parts.push(counterpart.product_categories[0])
+    summary = parts.join(' · ') || 'Negotiation in progress'
+  } else {
+    const parts = []
+    if (lead.requirement?.product) parts.push(lead.requirement.product)
+    if (lead.requirement?.quantity) parts.push(`${lead.requirement.quantity} ${lead.requirement.quantity_unit || 'units'}`)
+    if (lead.requirement?.budget_max) parts.push(`Budget ₹${lead.requirement.budget_max.toLocaleString()}`)
+    summary = parts.join(' · ') || 'Requirement details pending'
+  }
+
+  return (
+    <div style={{
+      margin: '8px 24px 0', padding: '8px 14px',
+      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8
+    }}>
+      <Package size={12} color="rgba(255,255,255,0.3)"/>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+        {summary}
+      </span>
+    </div>
+  )
+}
+
 export default function ConversationView({ leadId }) {
   const [conv, setConv]         = useState(null)
   const [lead, setLead]         = useState(null)
@@ -203,6 +451,8 @@ export default function ConversationView({ leadId }) {
   const [suggesting, setSuggesting]   = useState(false)
   const bottomRef = useRef(null)
   const { route, goRequirement, goWelcome } = useWorkspaceStore()
+  const currentUser = useAuthStore(s => s.user)
+  const isBuyer = lead ? currentUser?.id === lead.buyer_id : true
 
   const fetch = async () => {
     try {
@@ -281,7 +531,7 @@ export default function ConversationView({ leadId }) {
     }
   }
 
-  const canAct = lead && ['offer_ready','negotiating','agent_initiated','renegotiating'].includes(lead.status)
+  const canAct = lead && isBuyer && ['offer_ready','negotiating','agent_initiated','renegotiating'].includes(lead.status)
 
   return (
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
@@ -353,6 +603,12 @@ export default function ConversationView({ leadId }) {
             <RefreshCw size={13} color="rgba(255,255,255,0.4)"/>
           </button>
         </div>
+
+        {/* Confirmation Bar */}
+        <ConfirmationBar lead={lead} isBuyer={isBuyer} onRefresh={fetch}/>
+
+        {/* Chat Summary Strip */}
+        <ChatSummaryStrip lead={lead} isBuyer={isBuyer} counterpart={counterpart}/>
 
         {/* Requirement Info Card */}
         {lead?.requirement && (

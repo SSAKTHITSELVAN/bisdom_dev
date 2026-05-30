@@ -18,6 +18,7 @@ class Lead(Base):
 
     # Lead status lifecycle
     # new | agent_initiated | negotiating | offer_ready | buyer_review |
+    # buyer_shortlisted | supplier_pending | supplier_confirmed | supplier_declined |
     # accepted | renegotiating | manual_chat | deal_closed | not_selected | declined
     status = Column(String(50), default="new")
 

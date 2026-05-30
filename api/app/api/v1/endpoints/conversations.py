@@ -12,6 +12,7 @@ from app.schemas.conversation import (
     ConversationOut, SendMessageRequest, SendMessageResponse,
     ToggleChatRequest, BuyerDecisionRequest, SupplierEscalationResponse,
     MessageOut, SuggestResponseRequest, SuggestResponseOut,
+    SupplierConfirmRequest,
 )
 from app.agents.buyer_agent import buyer_agent_respond, generate_buyer_suggestion
 from app.agents.supplier_agent import supplier_agent_respond, get_default_agent_config, generate_supplier_suggestion
@@ -293,6 +294,17 @@ async def handle_buyer_decision(
 
     action = request.action.lower()
 
+    if action == "shortlist":
+        lead.status = "buyer_shortlisted"
+        lead.ai_paused_for_supplier = True
+        await _post_system_message(
+            lead.id,
+            "Buyer has shortlisted this supplier. Waiting for supplier confirmation.",
+            db
+        )
+        await db.commit()
+        return {"success": True, "status": "buyer_shortlisted", "message": "Supplier notified for confirmation."}
+
     if action == "accept":
         lead.status = "deal_closed"
         lead.deal_closed_at = datetime.utcnow()
@@ -376,6 +388,54 @@ async def handle_supplier_escalation(
     await db.flush()
 
     return {"success": True, "action": action, "lead_id": lead.id}
+
+
+@router.post("/supplier-confirm")
+async def handle_supplier_confirm(
+    request: SupplierConfirmRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supplier confirms or declines a buyer's shortlist request."""
+    lead_result = await db.execute(select(Lead).where(Lead.id == request.lead_id))
+    lead = lead_result.scalar_one_or_none()
+    if not lead or lead.supplier_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    if lead.status != "buyer_shortlisted":
+        raise HTTPException(status_code=400, detail="Lead is not awaiting supplier confirmation")
+
+    action = request.action.lower()
+
+    if action == "accept":
+        lead.status = "supplier_confirmed"
+        lead.ai_paused_for_supplier = False
+        lead.buyer_chat_enabled = True
+        lead.supplier_chat_enabled = True
+        conv_result = await db.execute(select(Conversation).where(Conversation.lead_id == lead.id))
+        conv = conv_result.scalar_one_or_none()
+        if conv:
+            conv.mode = "manual"
+        await _post_system_message(
+            lead.id,
+            "Supplier confirmed! Both parties can now chat directly to finalize the deal.",
+            db
+        )
+        await db.commit()
+        return {"success": True, "status": "supplier_confirmed", "message": "You accepted. Chat is now open."}
+
+    elif action == "decline":
+        lead.status = "supplier_declined"
+        lead.ai_paused_for_supplier = False
+        await _post_system_message(
+            lead.id,
+            "Supplier has declined this lead. Buyer will be notified.",
+            db
+        )
+        await db.commit()
+        return {"success": True, "status": "supplier_declined", "message": "You declined this lead."}
+
+    raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
 
 
 @router.post("/suggest-response", response_model=SuggestResponseOut)

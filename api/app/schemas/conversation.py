@@ -116,3 +116,21 @@ class SuggestResponseRequest(BaseModel):
 class SuggestResponseOut(BaseModel):
     suggested_message: str
     context: Optional[str] = None
+
+
+class SupplierConfirmRequest(BaseModel):
+    lead_id: int
+    action: str  # accept | decline
+
+
+class ActionNeededOut(BaseModel):
+    lead_id: int
+    requirement_id: int
+    counterpart_name: Optional[str] = None
+    product: Optional[str] = None
+    action_type: str  # supplier_confirm | buyer_decide | response_needed
+    status: str
+    current_offer_price: Optional[float] = None
+    fit_score: Optional[float] = None
+    created_at: datetime
+    updated_at: datetime
