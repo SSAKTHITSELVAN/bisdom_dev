@@ -121,3 +121,17 @@ class SuggestResponseRequest(BaseModel):
 class SuggestResponseOut(BaseModel):
     suggested_message: str
     context: Optional[str] = None
+
+
+class ActionNeededOut(BaseModel):
+    lead_id: int
+    requirement_id: int
+    counterpart_name: Optional[str] = None
+    product: Optional[str] = None
+    action_type: str
+    status: str
+    card_status: str = "pending"
+    current_offer_price: Optional[float] = None
+    fit_score: Optional[float] = None
+    created_at: datetime
+    updated_at: datetime
