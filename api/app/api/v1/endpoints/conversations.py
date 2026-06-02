@@ -22,6 +22,59 @@ from datetime import datetime
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
 
+@router.get("/pending-actions")
+async def get_pending_actions_early(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    All leads where the current user must act — polled by ActionsWidget.
+    Covers: buyer decision needed, offer ready, supplier escalation, confirm, declined by supplier.
+    """
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Lead)
+        .options(selectinload(Lead.requirement))
+        .where(or_(Lead.buyer_id == current_user.id, Lead.supplier_id == current_user.id))
+    )
+    all_leads = result.scalars().all()
+
+    pending = []
+    for lead in all_leads:
+        is_buyer = lead.buyer_id == current_user.id
+        is_supplier = lead.supplier_id == current_user.id
+        product = lead.requirement.product if lead.requirement else f"Lead #{lead.id}"
+        action_needed = None
+
+        if is_buyer:
+            if lead.ai_paused_for_buyer:
+                action_needed = "buyer_decision"
+            elif lead.status == "offer_ready":
+                action_needed = "review_offer"
+            elif lead.status == "declined":
+                action_needed = "supplier_declined"
+        if is_supplier:
+            if lead.status == "awaiting_supplier_confirm":
+                action_needed = "supplier_confirm"
+            elif lead.ai_paused_for_supplier and lead.status != "awaiting_supplier_confirm":
+                action_needed = "supplier_respond"
+
+        if action_needed:
+            pending.append({
+                "lead_id": lead.id,
+                "requirement_id": lead.requirement_id,
+                "action": action_needed,
+                "status": lead.status,
+                "product": product,
+                "current_offer_price": lead.current_offer_price,
+                "negotiation_round": lead.negotiation_round,
+                "buyer_id": lead.buyer_id,
+                "supplier_id": lead.supplier_id,
+            })
+
+    return {"pending": pending, "count": len(pending)}
+
+
 @router.get("/{conversation_id}", response_model=ConversationOut)
 async def get_conversation(
     conversation_id: int,
@@ -421,51 +474,6 @@ async def handle_supplier_confirm(
     raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
 
 
-@router.get("/pending-actions")
-async def get_pending_actions(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Get all leads where the current user has a pending action.
-    Buyer: ai_paused_for_buyer=True, or status=offer_ready
-    Supplier: ai_paused_for_supplier=True, or status=awaiting_supplier_confirm
-    """
-    result = await db.execute(
-        select(Lead).where(
-            or_(Lead.buyer_id == current_user.id, Lead.supplier_id == current_user.id)
-        )
-    )
-    all_leads = result.scalars().all()
-
-    pending = []
-    for lead in all_leads:
-        is_buyer = lead.buyer_id == current_user.id
-        is_supplier = lead.supplier_id == current_user.id
-
-        action_needed = None
-        if is_buyer and lead.ai_paused_for_buyer:
-            action_needed = "buyer_decision"
-        elif is_buyer and lead.status == "offer_ready":
-            action_needed = "review_offer"
-        elif is_supplier and lead.status == "awaiting_supplier_confirm":
-            action_needed = "supplier_confirm"
-        elif is_supplier and lead.ai_paused_for_supplier and lead.status not in ("awaiting_supplier_confirm",):
-            action_needed = "supplier_escalation"
-
-        if action_needed:
-            pending.append({
-                "lead_id": lead.id,
-                "requirement_id": lead.requirement_id,
-                "action": action_needed,
-                "status": lead.status,
-                "current_offer_price": lead.current_offer_price,
-                "negotiation_round": lead.negotiation_round,
-                "buyer_id": lead.buyer_id,
-                "supplier_id": lead.supplier_id,
-            })
-
-    return {"pending": pending, "count": len(pending)}
 
 
 @router.post("/suggest-response", response_model=SuggestResponseOut)
@@ -783,15 +791,11 @@ async def _run_autonomous_negotiation_round(lead_id: int):
                         logger.info(f"[AUTO] Lead #{lead_id}: buyer walked away, stopping")
                         return
 
-                    # If buyer accepted the deal (offer_ready), let supplier send final confirmation
+                    # offer_ready = AI buyer is ready but human buyer must confirm — stop and wait
                     if lead.status == "offer_ready":
-                        logger.info(f"[AUTO] Lead #{lead_id}: buyer accepted, triggering supplier's final confirmation")
-                        # Trigger supplier's final confirmation message
-                        supplier_msg = await _trigger_supplier_ai_response(
-                            conversation, lead, buyer_content, db
-                        )
+                        lead.ai_paused_for_buyer = True
                         await db.commit()
-                        logger.info(f"[AUTO] Lead #{lead_id}: supplier confirmed, stopping")
+                        logger.info(f"[AUTO] Lead #{lead_id}: offer_ready, paused for buyer decision")
                         return
 
                     if lead.status == "deal_closed":
