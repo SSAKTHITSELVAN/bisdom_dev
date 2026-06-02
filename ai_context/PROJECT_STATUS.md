@@ -1,31 +1,33 @@
 # Bisdom Project - Current Status
 
-**Last Updated**: 2026-06-01
+**Last Updated**: 2026-06-02
 **Status**: Active Development
-**Version**: 1.1.0
+**Version**: 1.2.0
 
 ---
 
 ## 🎯 Project Overview
 
-**Bisdom** is an AI-powered B2B Commerce Platform for Indian SMEs. It uses a **Supplier Card Flow** (not negotiation loops) for buyer-supplier matching:
+**Bisdom** is an AI-powered B2B Commerce Platform for Indian SMEs. After matching, buyer and supplier AI agents negotiate autonomously. Humans are prompted only when a decision is needed. The negotiation ends with buyer acceptance → supplier confirmation → deal closed.
 
-1. Buyer posts requirement → AI enriches via conversation
-2. AI matches suppliers → Lead records created
-3. AI generates a **Supplier Card** per lead (single-shot, no back-and-forth)
-4. Supplier reviews card, asks Q&A questions if needed
-5. Buyer/AI answers Q&A
-6. Supplier submits card (formal offer)
-7. Buyer compares submitted cards side-by-side → selects one supplier
-8. Human-to-human deal chat opens → buyer closes deal
+### Core Flow
+```
+Buyer posts requirement → AI enriches → confirmed →
+Matching runs → Leads created →
+AI agents negotiate (buyer AI ↔ supplier AI, autonomous loop) →
+  AI pauses when: offer ready for buyer / input needed from either side →
+Human buyer: Accept / Renegotiate / Decline / Take over chat →
+  Accept → awaiting_supplier_confirm →
+Human supplier: Confirm / Reject →
+  Confirm → deal_closed (human chat opens)
+  Reject → buyer must try other matched suppliers
+```
 
 ---
 
 ## ✅ What's Working
 
 ### 1. Authentication & Onboarding ✅
-**Status**: Fully Functional
-
 - Phone OTP auth, conversational login UI, GSTIN verification, profile creation
 - Backend: `/api/v1/auth/send-otp`, `/api/v1/auth/verify-otp`, `/api/v1/onboarding/*`
 - Frontend: `ConversationalLogin.jsx`, `OnboardingPage.jsx`
@@ -33,18 +35,13 @@
 ---
 
 ### 2. Profile Management ✅
-**Status**: Fully Functional
-
 - Markdown profile stored in `user_configs.profile_md`
-- Smart section parsing and display
 - Backend: `/api/v1/config`
-- Frontend: `ProfileEditorFixed.jsx`, `SettingsPanel.jsx`
+- Frontend: `ProfileEditorV4.jsx`, `SettingsPanel.jsx`
 
 ---
 
 ### 3. Requirement Enrichment ✅
-**Status**: Fully Functional
-
 - AI-guided conversational enrichment (one question at a time)
 - Confirmation modal before posting
 - Backend: `/api/v1/requirements/chat`, `/api/v1/requirements/confirm`
@@ -53,181 +50,170 @@
 ---
 
 ### 4. Supplier Matching ✅
-**Status**: Functional
-
-- Efficient matching with MiniLM embeddings + hard SQL filters
-- Fallback to legacy TF-IDF if no preprocessed products
+- MiniLM embeddings + hard SQL filters; fallback to TF-IDF
 - Threshold: fit_score >= 15%
-- Leads created with `status=new`, `card_status=pending`
+- Leads created with `status=new`
+- Backend: `api/app/services/matching_service.py`, `efficient_matching.py`
 
 ---
 
-### 5. Supplier Card Flow ✅ NEW
-**Status**: Fully Implemented (2026-06-01)
+### 5. AI Negotiation Loop ✅
+**Status**: Live and actively used.
 
-**Replaces the old AI negotiation loop entirely.**
+After matching, AI agents negotiate on behalf of both parties:
+- **Supplier AI** (`supplier_agent.py`): Greets buyer, clarifies requirements, presents 2–3 options with pricing
+- **Buyer AI** (`buyer_agent.py`): Evaluates offers against budget ceiling, negotiates down, signals when ready to accept
+- Loop runs autonomously (max 20 rounds, stops on pause/deal)
+- Either agent can pause for human input via `<NEEDS_BUYER_INPUT>` / `<NEEDS_SUPPLIER_INPUT>` signals
 
-#### Supplier side:
-- Sees new leads in sidebar grouped by card_status
-- Clicks "Generate Card" → AI creates offer in one shot (`card_agent.py`)
-- Reviews AI-generated card (price, lead time, MOQ, payment terms, certifications, key strengths, AI verdict)
-- Can ask Q&A questions about the requirement
-- Buyer/AI answers Q&A
-- Submits card when satisfied
+**Human checkpoints** (AI stops, user must act):
+| Trigger | Who acts | Action |
+|---------|---------|--------|
+| `status=offer_ready` / `ai_paused_for_buyer=True` | Buyer | Accept / Renegotiate / Decline / Take over chat |
+| `status=awaiting_supplier_confirm` | Supplier | Confirm / Reject |
+| `ai_paused_for_supplier=True` | Supplier | Let AI continue / Reply yourself / Decline |
 
-#### Buyer side:
-- Sees "Supplier Cards (N)" tab in RequirementOverview
-- Compares submitted cards side-by-side (sortable by fit score, price, lead time)
-- Confirmation modal before selecting
-- All other suppliers rejected automatically on selection
+**Backend**: `api/app/api/v1/endpoints/conversations.py`
+**Agents**: `buyer_agent.py`, `supplier_agent.py`
 
-#### After selection:
-- Human-to-human deal chat opens
-- Buyer closes deal → Deal record created
+#### Lead status lifecycle
+```
+new → agent_initiated → negotiating → renegotiating
+    → offer_ready (buyer must act)
+    → awaiting_supplier_confirm (supplier must act)
+    → deal_closed
+    → declined / not_selected
+```
 
-**Backend**: `api/app/api/v1/endpoints/cards.py`
-**AI**: `api/app/agents/card_agent.py`
+#### Conversation endpoints (`/api/v1/conversations/`)
+- `GET /pending-actions` — all leads needing user action (buyer or supplier)
+- `GET /lead/{lead_id}` — get conversation by lead
+- `GET /{conv_id}` — get conversation by ID
+- `POST /send` — human sends message
+- `POST /toggle-chat` — enable/disable human chat (hybrid mode)
+- `POST /buyer-decision` — accept / renegotiate / manual_chat / decline
+- `POST /supplier-escalation` — accept / counter / hold / decline
+- `POST /supplier-confirm` — confirm / reject
+- `POST /suggest-response` — AI suggests best next message for human
+- `POST /toggle-chat` — enable/disable manual chat
+
+---
+
+### 6. Supplier Card Flow ✅
+**Status**: Implemented — used in parallel with negotiation for leads that need formal offers.
+
+Supplier can generate an AI offer card from their lead, ask/answer Q&A, and submit. Buyer compares submitted cards and selects one.
+
+**Backend**: `api/app/api/v1/endpoints/cards.py`, `api/app/agents/card_agent.py`
 **Model**: `api/app/models/card_qa.py` (SupplierCardQA)
-**Frontend**: `SupplierLeadsPanel.jsx`, `BuyerCardsView.jsx`, `DealChat.jsx`
+**Frontend**: `SupplierLeadsPanel.jsx`, `BuyerCardsView.jsx`
 
-#### Lead status lifecycle:
-```
-new → card_generating → card_draft → card_qa → card_submitted → selected|rejected → deal_open → deal_closed
-```
-
-#### Card endpoints (all at `/api/v1/cards/`):
-- `POST /leads/{id}/generate-card` — trigger AI card gen (5/min rate limit)
-- `GET /leads/{id}/card` — get card
-- `POST /leads/{id}/qa` — supplier asks question (20/min)
-- `POST /leads/{id}/qa/{qa_id}/answer` — buyer answers manually
-- `GET /leads/{id}/qa` — list all Q&A
-- `POST /leads/{id}/submit-card` — supplier submits (10/min)
-- `GET /requirements/{req_id}/cards` — buyer sees all submitted cards
-- `POST /requirements/{req_id}/select` — buyer selects supplier (10/min)
+#### Card endpoints (`/api/v1/cards/`)
+- `POST /leads/{id}/generate-card` — AI card generation (background, 5/min)
+- `GET /leads/{id}/card` — get card status + data
+- `POST /leads/{id}/qa` — buyer asks question (AI auto-answers in background)
+- `POST /leads/{id}/qa/{qa_id}/answer` — supplier manually answers
+- `GET /leads/{id}/qa` — list Q&A
+- `POST /leads/{id}/submit-card` — supplier submits formal offer
+- `GET /requirements/{req_id}/cards` — buyer sees submitted+selected+rejected cards
+- `POST /requirements/{req_id}/select` — buyer selects a supplier
 - `POST /deal/close` — buyer closes deal
-- `GET /actions-needed` — poll for pending actions
-- `POST /conversations/{conv_id}/send` — deal chat send (30/min)
-- `GET /conversations/{conv_id}/messages` — deal chat read
+- `GET /actions-needed` — card-specific pending actions
+
+#### card_status lifecycle
+```
+pending → generating → draft → qa → submitted → selected | rejected
+```
 
 ---
 
-### 6. Admin Panel ✅
-**Status**: Fully Functional
+### 7. Actions System ✅
+**Status**: Working for both buyer and supplier.
 
+- `GET /api/v1/conversations/pending-actions` — returns all leads needing human action
+- Action types: `buyer_decision`, `review_offer`, `supplier_confirm`, `supplier_respond`, `supplier_declined`
+- Each item includes: `lead_id`, `requirement_id`, `action`, `status`, `product`, `current_offer_price`
+- Frontend: `ActionsWidget.jsx` (floating badge, 20s poll)
+  - Supplier actions → `goLead(leadId)`
+  - Buyer actions → `goChat(reqId, leadId)`
+
+---
+
+### 8. ConversationView ✅
+**Status**: Full UI for both buyer and supplier sides.
+
+- `ConfirmationBar`: context-aware bar at top — shows correct action for each status
+  - `offer_ready` / `ai_paused_for_buyer` → buyer Accept / Decline buttons
+  - `awaiting_supplier_confirm` (buyer) → waiting message
+  - `awaiting_supplier_confirm` (supplier) → Confirm / Reject buttons
+  - `ai_paused_for_supplier` → supplier respond prompt
+  - `declined` → "Supplier declined" message
+  - `deal_closed` → deal closed confirmation
+- `ActionPanel` (side panel): full actions for buyer (accept/renegotiate/chat/decline) and supplier (confirm/reject or respond/decline)
+- `canAct` triggers for both buyer and supplier conditions
+- AI Suggest button — generates best next message for the human on either side
+- Live Chat toggle — enables human to send messages (hybrid mode)
+- End-of-message paused bubble — prompts correct side to act
+
+---
+
+### 9. Admin Panel ✅
 - Time-based password (P1 security issue — dev/demo only)
 - Dashboard, requirements, users, supplier map
 - Pages: `/admin/login`, `/admin/dashboard`, `/admin/requirements`, `/admin/users`, `/admin/map`
 
 ---
 
-### 7. Rate Limiting ✅ NEW
-**Status**: Implemented (2026-06-01)
-
-- Library: `slowapi` (installed in venv `billion`)
+### 10. Rate Limiting ✅
+- Library: `slowapi`
 - Limiter: `api/app/core/limiter.py`
-- Auth endpoints: 5/min
-- Card generation: 5/min
-- Q&A: 20/min
-- Deal chat: 30/min
-- General: 100/min
+- Auth: 5/min; Card gen: 5/min; Q&A: 20/min; Submit/Select: 10/min; Deal chat: 30/min
 
 ---
 
 ## ⚠️ What Needs Testing
 
-### 1. End-to-End Card Flow ⚠️
-**Critical path**:
-```
-Register supplier → profile complete →
-Buyer posts requirement → matching runs →
-Supplier sees lead → generates card →
-Asks Q&A (optional) → submits card →
-Buyer reviews cards → selects supplier →
-Deal chat opens → deal closed
-```
-
-- [ ] Test with 2 real users (buyer + supplier)
-- [ ] Verify AI card generation returns sensible prices
-- [ ] Verify Q&A AI auto-answer works
-- [ ] Test buyer comparison and selection flow
-- [ ] Verify deal record created correctly
-
-### 2. AI Card Quality ⚠️
-- [ ] Test card_agent.py with real supplier profiles
-- [ ] Verify price estimates are within realistic range
-- [ ] Test answer_qa_question with various question types
+- [ ] Full negotiation → buyer accept → supplier confirm → deal closed (end-to-end)
+- [ ] Supplier decline → buyer sees "supplier_declined" action → picks next supplier
+- [ ] AI renegotiation after buyer sends target price
+- [ ] Supplier "AI paused for supplier" → supplier responds manually
+- [ ] Card flow: generate → Q&A → submit → buyer select → deal chat
 
 ---
 
 ## 🐛 Known Issues
 
 ### BUG-001: Admin Password Security (P1 — Production Blocker)
-Time-based HHMM password. Replace with proper admin accounts before production.
+Time-based HHMM password. Fix: replace with proper admin accounts.
 
 ### BUG-002: CORS Open to All Origins (P1 — Production Blocker)
-`allow_origins=["*"]` in `.env`. Restrict to actual domains before production.
+`allow_origins=["*"]`. Fix: restrict to actual domains.
 
 ### BUG-003: Matching Service Edge Cases (P2)
-Null pricing_bands/categories can cause errors. Partially mitigated by efficient matching.
+Null pricing_bands/categories can cause legacy matching errors.
 
-### BUG-012: Old `negotiation_round` field still in Lead model (P3)
-Not used in new flow but still in DB. Can be cleaned up in a future migration.
+### BUG-006: Unused Lead Fields (P3)
+Old fields still in DB: `max_negotiation_rounds`, `negotiation_round`. Harmless.
 
 ---
 
 ## 🔧 Technical Debt
 
-- No test suite for full E2E flow (only unit tests exist)
-- No logging system (structured logging not yet added)
-- No monitoring/alerting
+- No integration tests for negotiation loop
+- No structured logging
+- JWT in localStorage (XSS risk)
 - No staging environment
-- JWT stored in localStorage (not httpOnly cookie)
-- `negotiation_round` and related old fields still in Lead DB table (harmless but unused)
 
 ---
 
-## 📊 Code Quality
+## 📊 Code Size
 
 ### Backend
-- ~35 Python files, ~4000+ lines
-- 9 SQLAlchemy models + 1 new (SupplierCardQA)
-- ~40 API endpoints (new card flow adds 12)
-- 5 AI agents (card_agent replaces negotiation loop)
-- Rate limiting on all sensitive endpoints
+- ~38 Python files, ~5000+ lines
+- 10 SQLAlchemy models
+- ~50 API endpoints
+- 5 AI agents (buyer, supplier, card, requirement, profile)
 
 ### Frontend
 - 35+ JSX components
-- New: `SupplierLeadsPanel.jsx`, `BuyerCardsView.jsx`, `DealChat.jsx`, `api/cards.js`
-- Updated: `Sidebar.jsx`, `ActionsPanel.jsx`, `RequirementOverview.jsx`, `MainPanel.jsx`
-- Zustand store updated with `goLead`, `goDealChat` actions
-
----
-
-## 🚀 Deployment Readiness
-
-### Development ✅
-- Local development working
-- `billion` venv has all dependencies including slowapi
-
-### Production ❌
-- CORS must be restricted
-- Admin auth must be replaced
-- Rate limiting is in place ✅
-- Monitoring still needed
-- SSL on EC2 is configured (see DEPLOYMENT.md)
-
----
-
-## 🎯 Next Priority Actions
-
-### Immediate
-1. 🔄 **End-to-end testing** — card flow with 2 real users
-2. 🔄 **AI card quality** — verify card_agent produces good output with real profiles
-3. 🔴 **Admin security** (BUG-001) — before any public access
-4. 🔴 **CORS restriction** (BUG-002) — before production
-
-### Short Term
-5. Add structured logging (structlog)
-6. Add Sentry error tracking
-7. Write integration tests for card flow endpoints
-8. Clean up unused Lead fields (negotiation_round, max_negotiation_rounds)
+- 3 Zustand stores (authStore, workspaceStore, appStore)
