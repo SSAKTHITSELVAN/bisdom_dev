@@ -355,7 +355,7 @@ async def get_submitted_cards(
         ).where(
             Lead.requirement_id == req_id,
             Lead.buyer_id == current_user.id,
-            Lead.card_status == "submitted",
+            Lead.card_status.in_(["submitted", "selected", "rejected"]),
         ).order_by(Lead.fit_score.desc())
     )
     leads = leads_result.scalars().all()

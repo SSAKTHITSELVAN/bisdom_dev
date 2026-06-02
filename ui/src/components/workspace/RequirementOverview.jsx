@@ -75,7 +75,7 @@ export default function RequirementOverview({ req, leads = [] }) {
     </div>
   )
 
-  const submitted = leads.filter(l => l.card_status === 'submitted')
+  const submitted = leads.filter(l => ['submitted','selected','rejected'].includes(l.card_status))
   const selected  = leads.filter(l => l.card_status === 'selected')
   const closed    = leads.filter(l => l.status === 'deal_closed')
 
