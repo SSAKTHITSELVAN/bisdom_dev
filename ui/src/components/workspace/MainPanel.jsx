@@ -39,6 +39,14 @@ export default function MainPanel({ buyerRequirements, leadsByRequirement, selle
         return <DealChat lead={lead} conversationId={route.convId || lead.conversation?.id} />
       }
 
+      // Buyer: view conversation with a specific supplier under a requirement
+      case 'chat': {
+        const leads = leadsByRequirement[route.reqId] || []
+        const lead = leads.find(l => l.id === route.leadId)
+        if (!lead) return <WelcomeScreen />
+        return <DealChat lead={lead} conversationId={lead.conversation?.id} />
+      }
+
       case 'general_chat': {
         const req = buyerRequirements.find(r => r.id === route.reqId)
         const leads = leadsByRequirement[route.reqId] || []
