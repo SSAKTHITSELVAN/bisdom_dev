@@ -97,34 +97,51 @@ function RequirementFolder({ req, leads = [], onNavClick }) {
 }
 
 function SellerLeadGroup({ leads, onNavClick }) {
-  const { route, goChat } = useWorkspaceStore()
-  // Group seller leads by status category
-  const needsAction = leads.filter(l => l.status === 'awaiting_supplier_confirm' || l.ai_paused_for_supplier)
-  const active  = leads.filter(l => ['agent_initiated','negotiating','renegotiating'].includes(l.status))
-  const pending = leads.filter(l => ['offer_ready','buyer_review'].includes(l.status))
-  const closed  = leads.filter(l => l.status === 'deal_closed')
-  const other   = leads.filter(l => !needsAction.includes(l) && !active.includes(l) && !pending.includes(l) && !closed.includes(l))
+  const { route, goLead, goDealChat } = useWorkspaceStore()
 
-  const Section = ({ title, items, color, onNavClick }) => items.length === 0 ? null : (
+  // Group by card_status
+  const pending   = leads.filter(l => ['pending','generating'].includes(l.card_status))
+  const draft     = leads.filter(l => ['draft','qa'].includes(l.card_status))
+  const submitted = leads.filter(l => l.card_status === 'submitted')
+  const selected  = leads.filter(l => l.card_status === 'selected' || l.status === 'deal_open')
+  const closed    = leads.filter(l => l.status === 'deal_closed')
+  const rejected  = leads.filter(l => l.card_status === 'rejected' || l.status === 'not_selected')
+
+  const cardStatusColor = (lead) => {
+    if (['deal_closed','selected'].includes(lead.card_status)) return '#4ade80'
+    if (lead.card_status === 'submitted') return '#a78bfa'
+    if (['draft','qa'].includes(lead.card_status)) return '#fbbf24'
+    return 'rgba(255,255,255,0.2)'
+  }
+
+  const Section = ({ title, items, color }) => items.length === 0 ? null : (
     <div style={{ marginBottom:8 }}>
       <div style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,0.3)', letterSpacing:'0.08em', textTransform:'uppercase', padding:'4px 8px' }}>
         <span style={{ color }}>{title}</span> ({items.length})
       </div>
       {items.map(lead => (
         <div key={lead.id}
-          className={`sidebar-item ${route.view === 'chat' && route.leadId === lead.id ? 'active' : ''}`}
-          onClick={onNavClick(() => goChat(null, lead.id))}
+          className={`sidebar-item ${(route.view === 'lead' || route.view === 'deal_chat') && route.leadId === lead.id ? 'active' : ''}`}
+          onClick={onNavClick(() => {
+            if (lead.status === 'deal_open' || lead.status === 'deal_closed') {
+              goDealChat(lead.id, lead.conversation?.id)
+            } else {
+              goLead(lead.id)
+            }
+          })}
         >
           <div style={{ width:26, height:26, borderRadius:7, background:'rgba(167,139,250,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
             <ShoppingCart size={12} color="#a78bfa"/>
           </div>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:12, fontWeight:600, color:'#fff' }}>Buyer Lead #{lead.id}</div>
+            <div style={{ fontSize:12, fontWeight:600, color:'#fff' }}>
+              {lead.requirement?.product || `Lead #${lead.id}`}
+            </div>
             <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', marginTop:1 }}>
-              {lead.current_offer_price ? `₹${lead.current_offer_price.toLocaleString()}` : lead.status.replace(/_/g,' ')} · {timeAgo(lead.updated_at)}
+              {lead.card_status?.replace(/_/g,' ')} · {timeAgo(lead.updated_at)}
             </div>
           </div>
-          {lead.ai_paused_for_supplier && <div style={{ width:5, height:5, borderRadius:'50%', background:'#fbbf24', flexShrink:0 }}/>}
+          <div style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: cardStatusColor(lead) }}/>
         </div>
       ))}
     </div>
@@ -132,11 +149,12 @@ function SellerLeadGroup({ leads, onNavClick }) {
 
   return (
     <>
-      <Section title="Action Needed" items={needsAction} color="#f59e0b" onNavClick={onNavClick}/>
-      <Section title="Active" items={active}  color="#60a5fa" onNavClick={onNavClick}/>
-      <Section title="Pending" items={pending} color="#fbbf24" onNavClick={onNavClick}/>
-      <Section title="Closed"  items={closed}  color="#4ade80" onNavClick={onNavClick}/>
-      <Section title="Other"   items={other}   color="rgba(255,255,255,0.4)" onNavClick={onNavClick}/>
+      <Section title="Generate Card" items={pending}   color="#60a5fa"/>
+      <Section title="Draft / Q&A"   items={draft}     color="#fbbf24"/>
+      <Section title="Submitted"     items={submitted}  color="#a78bfa"/>
+      <Section title="Deal Open"     items={selected}   color="#34d399"/>
+      <Section title="Closed"        items={closed}     color="#4ade80"/>
+      <Section title="Not Selected"  items={rejected}   color="rgba(255,255,255,0.3)"/>
     </>
   )
 }

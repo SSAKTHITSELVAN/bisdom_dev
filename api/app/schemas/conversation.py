@@ -73,6 +73,10 @@ class LeadOut(BaseModel):
     supplier_id: int
     fit_score: Optional[float]
     status: str
+    card_status: str = "pending"
+    supplier_card: Optional[dict] = None
+    card_submitted_at: Optional[datetime] = None
+    card_selected_at: Optional[datetime] = None
     current_offer_price: Optional[float]
     current_offer_unit: Optional[str] = None
     current_lead_time: Optional[int]
@@ -88,11 +92,43 @@ class LeadOut(BaseModel):
     deal_closed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
-    requirement: Optional[RequirementBasic] = None  # Include requirement details
-    supplier_info: Optional[SupplierBasic] = None   # NEW: Include supplier details
+    requirement: Optional[RequirementBasic] = None
+    supplier_info: Optional[SupplierBasic] = None
 
     class Config:
         from_attributes = True
+
+
+class CardQAOut(BaseModel):
+    id: int
+    lead_id: int
+    question: str
+    asked_by: int
+    answer: Optional[str] = None
+    answered_by: Optional[int] = None
+    answered_by_ai: bool
+    status: str
+    created_at: datetime
+    answered_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AskQuestionRequest(BaseModel):
+    question: str
+
+
+class AnswerQuestionRequest(BaseModel):
+    answer: str
+
+
+class SelectSupplierRequest(BaseModel):
+    lead_id: int
+
+
+class CloseDealRequest(BaseModel):
+    lead_id: int
 
 
 class BuyerDecisionRequest(BaseModel):

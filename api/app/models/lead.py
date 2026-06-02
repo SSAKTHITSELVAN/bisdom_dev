@@ -40,6 +40,13 @@ class Lead(Base):
     ai_paused_for_buyer = Column(Boolean, default=False)   # awaiting buyer input
     ai_paused_for_supplier = Column(Boolean, default=False)  # awaiting supplier input
 
+    # Supplier card flow
+    # card_status: pending | generating | draft | qa | submitted | selected | rejected
+    card_status = Column(String(30), default="pending")
+    supplier_card = Column(JSON, nullable=True)       # AI-generated card data
+    card_submitted_at = Column(DateTime, nullable=True)
+    card_selected_at = Column(DateTime, nullable=True)
+
     # Ratings
     buyer_rating = Column(Integer, nullable=True)          # 1-5
     supplier_rating = Column(Integer, nullable=True)
