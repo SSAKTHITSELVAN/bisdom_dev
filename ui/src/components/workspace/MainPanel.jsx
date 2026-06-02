@@ -1,34 +1,58 @@
 import { useWorkspaceStore } from '@/store/workspaceStore'
+import { useAuthStore } from '@/store/authStore'
 import { Menu } from 'lucide-react'
 import NewRequirementChat from './NewRequirementChat'
 import RequirementOverview from './RequirementOverview'
-import ConversationView from './ConversationView'
 import WelcomeScreen from './WelcomeScreen'
 import ProfilePanel from './ProfileEditorV4'
 import SettingsPanel from './SettingsPanel'
 import GeneralReqChat from './GeneralReqChat'
+import SupplierLeadsPanel from './SupplierLeadsPanel'
+import DealChat from './DealChat'
 
 export default function MainPanel({ buyerRequirements, leadsByRequirement, sellerLeads, onToggleSidebar }) {
   const { route } = useWorkspaceStore()
+  const { user } = useAuthStore()
 
   const renderContent = () => {
-  switch (route.view) {
-    case 'profile':         return <ProfilePanel />
-    case 'settings':        return <SettingsPanel />
-    case 'new_requirement': return <NewRequirementChat />
-    case 'chat':            return <ConversationView leadId={route.leadId} />
-    case 'general_chat': {
-      const req = buyerRequirements.find(r => r.id === route.reqId)
-      const leads = leadsByRequirement[route.reqId] || []
-      return <GeneralReqChat req={req} leads={leads} />
+    switch (route.view) {
+      case 'profile':         return <ProfilePanel />
+      case 'settings':        return <SettingsPanel />
+      case 'new_requirement': return <NewRequirementChat />
+
+      // Supplier: view their lead card + Q&A
+      case 'lead': {
+        const lead = sellerLeads.find(l => l.id === route.leadId)
+        if (!lead) return <WelcomeScreen />
+        // If deal is open/closed, show deal chat
+        if (['deal_open', 'deal_closed'].includes(lead.status) && lead.conversation) {
+          return <DealChat lead={lead} conversationId={lead.conversation?.id} />
+        }
+        return <SupplierLeadsPanel lead={lead} />
+      }
+
+      // Deal chat (after selection)
+      case 'deal_chat': {
+        const lead = sellerLeads.find(l => l.id === route.leadId)
+          || Object.values(leadsByRequirement).flat().find(l => l.id === route.leadId)
+        if (!lead) return <WelcomeScreen />
+        return <DealChat lead={lead} conversationId={route.convId || lead.conversation?.id} />
+      }
+
+      case 'general_chat': {
+        const req = buyerRequirements.find(r => r.id === route.reqId)
+        const leads = leadsByRequirement[route.reqId] || []
+        return <GeneralReqChat req={req} leads={leads} />
+      }
+
+      case 'requirement': {
+        const req = buyerRequirements.find(r => r.id === route.reqId)
+        const leads = leadsByRequirement[route.reqId] || []
+        return <RequirementOverview req={req} leads={leads} />
+      }
+
+      default: return <WelcomeScreen />
     }
-    case 'requirement': {
-      const req = buyerRequirements.find(r => r.id === route.reqId)
-      const leads = leadsByRequirement[route.reqId] || []
-      return <RequirementOverview req={req} leads={leads} />
-    }
-    default: return <WelcomeScreen />
-  }
   }
 
   return (

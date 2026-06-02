@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -19,8 +19,6 @@ class ConversationOut(BaseModel):
     id: int
     lead_id: int
     mode: str
-    buyer_chat_enabled: bool
-    supplier_chat_enabled: bool
     messages: List[MessageOut]
     created_at: datetime
 
@@ -35,16 +33,9 @@ class SendMessageRequest(BaseModel):
 
 class SendMessageResponse(BaseModel):
     message: MessageOut
-    ai_response: Optional[MessageOut] = None
-
-
-class ToggleChatRequest(BaseModel):
-    lead_id: int
-    enabled: bool
 
 
 class RequirementBasic(BaseModel):
-    """Basic requirement info for lead display"""
     id: int
     product: str
     quantity: float
@@ -59,12 +50,53 @@ class RequirementBasic(BaseModel):
 
 
 class SupplierBasic(BaseModel):
-    """Basic supplier info for lead display"""
     supplier_id: int
     trade_name: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
 
+
+# ── Supplier Card ────────────────────────────────────────────────────────────
+
+class SupplierCardOut(BaseModel):
+    price_estimate: Optional[float] = None
+    price_unit: Optional[str] = None
+    lead_time_days: Optional[int] = None
+    payment_terms: Optional[str] = None
+    moq: Optional[float] = None
+    certifications: Optional[List[str]] = None
+    key_strengths: Optional[List[str]] = None
+    ai_verdict: Optional[str] = None
+    raw_message: Optional[str] = None
+
+
+# ── Q&A ─────────────────────────────────────────────────────────────────────
+
+class CardQAOut(BaseModel):
+    id: int
+    lead_id: int
+    question: str
+    asked_by: int
+    answer: Optional[str] = None
+    answered_by: Optional[int] = None
+    answered_by_ai: bool
+    status: str
+    created_at: datetime
+    answered_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CardQARequest(BaseModel):
+    question: str
+
+
+class CardQAAnswerRequest(BaseModel):
+    answer: str
+
+
+# ── Lead ─────────────────────────────────────────────────────────────────────
 
 class LeadOut(BaseModel):
     id: int
@@ -73,63 +105,47 @@ class LeadOut(BaseModel):
     supplier_id: int
     fit_score: Optional[float]
     status: str
+    card_status: str = "pending"
+    supplier_card: Optional[dict] = None
     current_offer_price: Optional[float]
     current_offer_unit: Optional[str] = None
     current_lead_time: Optional[int]
-    negotiation_round: int
-    max_negotiation_rounds: int
-    buyer_chat_enabled: bool
-    supplier_chat_enabled: bool
-    ai_paused_for_buyer: bool
-    ai_paused_for_supplier: bool
     match_reasons: Optional[List[str]]
     final_price: Optional[float] = None
     final_lead_time: Optional[int] = None
+    card_submitted_at: Optional[datetime] = None
+    card_selected_at: Optional[datetime] = None
     deal_closed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
-    requirement: Optional[RequirementBasic] = None  # Include requirement details
-    supplier_info: Optional[SupplierBasic] = None   # NEW: Include supplier details
+    requirement: Optional[RequirementBasic] = None
+    supplier_info: Optional[SupplierBasic] = None
 
     class Config:
         from_attributes = True
 
 
-class BuyerDecisionRequest(BaseModel):
-    lead_id: int
-    # action: accept | renegotiate | manual_chat | decline
-    action: str
-    renegotiate_target: Optional[str] = None   # e.g. "Get price below 170"
+# ── Buyer actions ─────────────────────────────────────────────────────────────
 
-
-class SupplierEscalationResponse(BaseModel):
-    lead_id: int
-    # action: accept | counter | hold | decline
-    action: str
-    counter_price: Optional[float] = None
-
-
-class SuggestResponseRequest(BaseModel):
+class BuyerSelectRequest(BaseModel):
     lead_id: int
 
 
-class SuggestResponseOut(BaseModel):
-    suggested_message: str
-    context: Optional[str] = None
-
-
-class SupplierConfirmRequest(BaseModel):
+class DealCloseRequest(BaseModel):
     lead_id: int
-    action: str  # accept | decline
 
+
+# ── Deal chat ────────────────────────────────────────────────────────────────
 
 class ActionNeededOut(BaseModel):
     lead_id: int
     requirement_id: int
     counterpart_name: Optional[str] = None
     product: Optional[str] = None
-    action_type: str  # supplier_confirm | buyer_decide | response_needed
+    # action_type: card_ready (buyer must pick) | qa_pending (buyer must answer)
+    action_type: str
     status: str
+    card_status: str = "pending"
     current_offer_price: Optional[float] = None
     fit_score: Optional[float] = None
     created_at: datetime

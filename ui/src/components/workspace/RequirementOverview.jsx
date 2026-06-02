@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import StatusBadge from '@/components/ui/StatusBadge'
-import { Bot, Package, TrendingUp, CheckCircle, AlertTriangle } from 'lucide-react'
+import BuyerCardsView from './BuyerCardsView'
+import { Bot, Package, TrendingUp, CheckCircle, FileText } from 'lucide-react'
 
 function LeadCard({ lead, onClick }) {
   const needsInput = lead.ai_paused_for_buyer
@@ -61,7 +63,8 @@ function LeadCard({ lead, onClick }) {
 }
 
 export default function RequirementOverview({ req, leads = [] }) {
-  const { goChat, goGeneralChat } = useWorkspaceStore()
+  const { goGeneralChat } = useWorkspaceStore()
+  const [tab, setTab] = useState('cards') // cards | leads
 
   if (!req) return (
     <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:'#0a1628' }}>
@@ -72,9 +75,9 @@ export default function RequirementOverview({ req, leads = [] }) {
     </div>
   )
 
-  const active   = leads.filter(l => ['agent_initiated','negotiating','renegotiating'].includes(l.status))
-  const needsYou = leads.filter(l => l.ai_paused_for_buyer)
-  const closed   = leads.filter(l => l.status === 'deal_closed')
+  const submitted = leads.filter(l => l.card_status === 'submitted')
+  const selected  = leads.filter(l => l.card_status === 'selected')
+  const closed    = leads.filter(l => l.status === 'deal_closed')
 
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#0a1628', overflow:'hidden' }}>
@@ -102,10 +105,10 @@ export default function RequirementOverview({ req, leads = [] }) {
         {/* Stats row */}
         <div style={{ display:'flex', gap:12 }}>
           {[
-            { icon:Bot,          label:'Total Sellers',  value:leads.length,   color:'#60a5fa' },
-            { icon:TrendingUp,   label:'Negotiating',    value:active.length,  color:'#34d399' },
-            { icon:AlertTriangle,label:'Need Decision',  value:needsYou.length,color:'#fbbf24' },
-            { icon:CheckCircle,  label:'Closed',         value:closed.length,  color:'#4ade80' },
+            { icon:Bot,        label:'Matched',   value:leads.length,      color:'#60a5fa' },
+            { icon:FileText,   label:'Submitted', value:submitted.length,  color:'#a78bfa' },
+            { icon:TrendingUp, label:'Selected',  value:selected.length,   color:'#34d399' },
+            { icon:CheckCircle,label:'Closed',    value:closed.length,     color:'#4ade80' },
           ].map(({ icon:Icon, label, value, color }) => (
             <div key={label} style={{ flex:1, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:10, padding:'10px 14px' }}>
               <Icon size={14} color={color} style={{ marginBottom:6 }}/>
@@ -115,33 +118,58 @@ export default function RequirementOverview({ req, leads = [] }) {
           ))}
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display:'flex', gap:8, marginTop:14, flexWrap:'wrap' }}>
+        {/* Tabs + Ask AI */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:14, flexWrap:'wrap', gap:8 }}>
+          <div style={{ display:'flex', gap:6 }}>
+            {[['cards', `Supplier Cards (${submitted.length})`], ['leads', `All Leads (${leads.length})`]].map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)} style={{
+                padding:'6px 14px', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)',
+                background: tab===key ? 'rgba(96,165,250,0.2)' : 'transparent',
+                color: tab===key ? '#60a5fa' : 'rgba(255,255,255,0.5)',
+                cursor:'pointer', fontFamily:'Montserrat,sans-serif', fontSize:12, fontWeight:700
+              }}>{label}</button>
+            ))}
+          </div>
           <button onClick={() => goGeneralChat(req.id)}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'rgba(96,165,250,0.1)', border:'1px solid rgba(96,165,250,0.2)', borderRadius:8, cursor:'pointer', fontFamily:'Montserrat,sans-serif', fontSize:12, fontWeight:600, color:'#60a5fa' }}>
-            <Bot size={13}/> Ask AI about this
+            style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', background:'rgba(96,165,250,0.1)', border:'1px solid rgba(96,165,250,0.2)', borderRadius:8, cursor:'pointer', fontFamily:'Montserrat,sans-serif', fontSize:12, fontWeight:600, color:'#60a5fa' }}>
+            <Bot size={13}/> Ask AI
           </button>
         </div>
       </div>
 
-      {/* Seller list */}
-      <div style={{ flex:1, overflowY:'auto', padding:'20px 32px' }}>
-        <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:14 }}>
-          Seller Conversations ({leads.length})
-        </p>
-
-        {leads.length === 0 && (
-          <div style={{ textAlign:'center', padding:'48px 0', color:'rgba(255,255,255,0.3)' }}>
-            <Bot size={36} style={{ margin:'0 auto 12px', opacity:0.3 }}/>
-            <p style={{ fontSize:13 }}>Matching suppliers…</p>
-            <p style={{ fontSize:11, marginTop:6, opacity:0.6 }}>AI agents will appear here once matched</p>
+      {/* Tab content */}
+      <div style={{ flex:1, overflowY:'auto' }}>
+        {tab === 'cards' && <BuyerCardsView requirementId={req.id} />}
+        {tab === 'leads' && (
+          <div style={{ padding:'20px 32px' }}>
+            <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:14 }}>
+              All Matched Leads ({leads.length})
+            </p>
+            {leads.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'48px 0', color:'rgba(255,255,255,0.3)' }}>
+                <Bot size={36} style={{ margin:'0 auto 12px', opacity:0.3 }}/>
+                <p style={{ fontSize:13 }}>Matching suppliers…</p>
+              </div>
+            ) : (
+              leads.map(lead => (
+                <div key={lead.id} style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'12px 16px', marginBottom:8 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <span style={{ fontSize:13, fontWeight:600, color:'#fff' }}>
+                      {lead.supplier_info?.trade_name || `Supplier #${lead.supplier_id}`}
+                    </span>
+                    <span style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.5)', background:'rgba(255,255,255,0.08)', borderRadius:8, padding:'2px 8px' }}>
+                      {lead.card_status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:4 }}>
+                    Fit: {lead.fit_score ? `${Math.round(lead.fit_score)}%` : '—'}
+                    {lead.current_offer_price ? ` · ₹${lead.current_offer_price.toLocaleString()}/unit` : ''}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
-
-        {/* Priority order: needs decision → active → others */}
-        {[...needsYou, ...active.filter(l => !needsYou.includes(l)), ...leads.filter(l => !active.includes(l) && !needsYou.includes(l))].map(lead => (
-          <LeadCard key={lead.id} lead={lead} onClick={() => goChat(req.id, lead.id)}/>
-        ))}
       </div>
     </div>
   )

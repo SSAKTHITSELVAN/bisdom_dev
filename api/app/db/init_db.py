@@ -9,6 +9,7 @@ from app.models.conversation import Conversation, Message  # noqa
 from app.models.deal import Deal  # noqa
 from app.models.user_config import UserConfig  # noqa
 from app.models.requirement_chat import RequirementChat  # noqa
+from app.models.card_qa import SupplierCardQA  # noqa
 
 
 async def init_db():

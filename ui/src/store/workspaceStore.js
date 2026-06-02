@@ -25,7 +25,11 @@ export function parseHash() {
 
   // #/lead/456  (seller side — no parent req)
   const leadOnly = h.match(/^lead\/(\d+)$/)
-  if (leadOnly) return { view: 'chat', reqId: null, leadId: parseInt(leadOnly[1]) }
+  if (leadOnly) return { view: 'lead', reqId: null, leadId: parseInt(leadOnly[1]) }
+
+  // #/deal/456  (deal chat after selection)
+  const dealChat = h.match(/^deal\/(\d+)$/)
+  if (dealChat) return { view: 'deal_chat', leadId: parseInt(dealChat[1]) }
 
   return { view: 'welcome' }
 }
@@ -46,6 +50,8 @@ export const useWorkspaceStore = create((set, get) => ({
     set({ route: { view: 'chat', reqId, leadId } })
   },
   goGeneralChat: (reqId)      => { setHash(`/req/${reqId}/general`); set({ route: { view: 'general_chat', reqId } }) },
+  goLead:        (leadId)     => { setHash(`/lead/${leadId}`); set({ route: { view: 'lead', leadId } }) },
+  goDealChat:    (leadId, convId) => { setHash(`/deal/${leadId}`); set({ route: { view: 'deal_chat', leadId, convId } }) },
 
   // Sync route from hash (call on hashchange)
   syncFromHash: () => set({ route: parseHash() }),

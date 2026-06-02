@@ -1,650 +1,233 @@
 # Bisdom Project - Current Status
 
-**Last Updated**: 2026-05-19  
-**Status**: Active Development  
-**Version**: 1.0.0  
+**Last Updated**: 2026-06-01
+**Status**: Active Development
+**Version**: 1.1.0
 
 ---
 
 ## 🎯 Project Overview
 
-**Bisdom** is an AI-powered B2B Commerce Platform designed for Indian SMEs. It uses autonomous AI agents for:
-- Supplier discovery and matching
-- Automated lead generation
-- AI-driven negotiation between buyers and suppliers
-- Requirement enrichment through conversational AI
+**Bisdom** is an AI-powered B2B Commerce Platform for Indian SMEs. It uses a **Supplier Card Flow** (not negotiation loops) for buyer-supplier matching:
+
+1. Buyer posts requirement → AI enriches via conversation
+2. AI matches suppliers → Lead records created
+3. AI generates a **Supplier Card** per lead (single-shot, no back-and-forth)
+4. Supplier reviews card, asks Q&A questions if needed
+5. Buyer/AI answers Q&A
+6. Supplier submits card (formal offer)
+7. Buyer compares submitted cards side-by-side → selects one supplier
+8. Human-to-human deal chat opens → buyer closes deal
 
 ---
 
 ## ✅ What's Working
 
 ### 1. Authentication & Onboarding ✅
-**Status**: Fully Functional (Enhanced - Conversational UI)
+**Status**: Fully Functional
 
-**Components**:
-- Phone-based OTP authentication
-- Conversational chat-based login (Claude-style)
-- Sign In / Sign Up flow separation
-- GSTIN verification for new signups
-- Profile creation with external link scraping
-- Role assignment (buyer/supplier)
-
-**Flow**:
-```
-NEW CONVERSATIONAL FLOW:
-User lands on /login → AI greeting → Choose "Sign In" or "Sign Up" →
-Enter phone number in chat → OTP sent → Enter OTP in chat →
-[If Sign Up] Enter GSTIN → Navigate to /onboarding →
-[If Sign In] Navigate directly to /workspace
-
-OLD FORM FLOW (kept at /login-old):
-PhonePage → OTPPage → Onboarding
-```
-
-**Backend**:
-- `/api/v1/auth/send-otp` ✅
-- `/api/v1/auth/verify-otp` ✅
-- `/api/v1/onboarding/start` ✅
-- `/api/v1/onboarding/submit` ✅
-
-**Frontend**:
-- **ConversationalLogin.jsx** ✅ (NEW - Primary login)
-  - Chat interface with Bisdom AI
-  - Sign In/Sign Up choice buttons
-  - Progressive conversation flow
-  - Fixed bottom input bar with glass morphism
-  - 30-second OTP resend timer
-  - Professional animations (slideIn, scaleIn, pulse, float)
-  - Auth store integration for navigation
-- PhonePage.jsx ✅ (OLD - Fallback at /login-old)
-- OTPPage.jsx ✅ (OLD - Fallback)
-- OnboardingPage.jsx ✅
-
-**Recent Enhancements** (2026-05-19):
-- ✅ Fixed navigation after OTP verification (auth store integration)
-- ✅ Added Resend OTP feature with countdown timer
-- ✅ Enhanced UX with Claude-style conversational interface
-- ✅ Increased width to 900px for better readability
-- ✅ Added ambient background effects (pulsing gradients, floating particles)
-- ✅ Fixed message visibility issues
-- ✅ Prevented React StrictMode duplicate messages
-
-**Issues**: None known
+- Phone OTP auth, conversational login UI, GSTIN verification, profile creation
+- Backend: `/api/v1/auth/send-otp`, `/api/v1/auth/verify-otp`, `/api/v1/onboarding/*`
+- Frontend: `ConversationalLogin.jsx`, `OnboardingPage.jsx`
 
 ---
 
 ### 2. Profile Management ✅
-**Status**: Fully Functional (Enhanced)
+**Status**: Fully Functional
 
-**Features**:
-- Profile stored as markdown in `user_configs.profile_md`
-- Smart parsing and categorization into sections:
-  - Supplier Overview
-  - Contact Information
-  - Capabilities & Certifications
-  - Product Catalogue
-  - Additional Information
-- Edit/View toggle
-- AI agents read raw markdown
-
-**Backend**:
-- `/api/v1/config` ✅
-
-**Frontend**:
-- ProfilePanel.jsx (workspace) ✅
-- ProfilePage.jsx (mobile view) ✅
-
-**Recent Enhancement**: 
-- Added intelligent markdown parser
-- Professional card-based display
-- Product specifications in grid layout
-
-**Issues**: None known
+- Markdown profile stored in `user_configs.profile_md`
+- Smart section parsing and display
+- Backend: `/api/v1/config`
+- Frontend: `ProfileEditorFixed.jsx`, `SettingsPanel.jsx`
 
 ---
 
 ### 3. Requirement Enrichment ✅
-**Status**: Fully Functional (Enhanced)
+**Status**: Fully Functional
 
-**Features**:
-- AI-guided conversational enrichment
-- Collects: product, quantity, budget, location, delivery time, specs
-- Quick reply suggestions
-- Real-time validation
-- **NEW**: Confirmation modal before posting
-
-**AI Agent**: `requirement_agent.py`
-- Uses AWS Bedrock (Qwen3 model)
-- One question at a time
-- Flexible (accepts "skip", "no preference")
-- Outputs structured JSON
-
-**Backend**:
-- `/api/v1/requirements/chat` ✅
-- `/api/v1/requirements/confirm` ✅
-- `/api/v1/requirements` (list) ✅
-- `/api/v1/requirements/{id}` (get) ✅
-
-**Frontend**:
-- NewRequirementChat.jsx ✅
-- RequirementOverview.jsx ✅
-
-**Recent Enhancement**:
-- Confirmation modal with full summary
-- Review before posting
-- Cancel/confirm workflow
-
-**Issues**: None known
+- AI-guided conversational enrichment (one question at a time)
+- Confirmation modal before posting
+- Backend: `/api/v1/requirements/chat`, `/api/v1/requirements/confirm`
+- Frontend: `NewRequirementChat.jsx`
 
 ---
 
 ### 4. Supplier Matching ✅
-**Status**: Functional (Needs Testing)
+**Status**: Functional
 
-**Features**:
-- Automatic matching based on:
-  - Product categories
-  - Location proximity
-  - Pricing bands
-  - MOQ compatibility
-  - Lead times
-- Generates match scores (0-100)
-- Creates Lead records
-
-**Service**: `matching_service.py`
-
-**Algorithm**:
-```python
-Match Score = (
-  product_match * 0.4 +
-  location_match * 0.2 +
-  pricing_match * 0.2 +
-  moq_match * 0.1 +
-  lead_time_match * 0.1
-)
-```
-
-**Backend**:
-- Background task after requirement confirmation
-- Creates leads automatically
-
-**Potential Issues**:
-⚠️ Need to verify profile_build_status is set to "complete"  
-⚠️ Need to ensure is_supplier flag is True  
-⚠️ Test with real data
+- Efficient matching with MiniLM embeddings + hard SQL filters
+- Fallback to legacy TF-IDF if no preprocessed products
+- Threshold: fit_score >= 15%
+- Leads created with `status=new`, `card_status=pending`
 
 ---
 
-### 5. AI Negotiation ✅
-**Status**: Partially Functional (Needs Testing)
+### 5. Supplier Card Flow ✅ NEW
+**Status**: Fully Implemented (2026-06-01)
 
-**Features**:
-- Supplier AI initiates conversation
-- Buyer AI responds automatically
-- Unlimited rounds until deal confirmed
-- Each agent reads its own settings
+**Replaces the old AI negotiation loop entirely.**
 
-**AI Agents**:
-- `supplier_agent.py` - Generates supplier offers
-- `buyer_agent.py` - Evaluates and responds
-- `config_agent.py` - Builds system prompts
+#### Supplier side:
+- Sees new leads in sidebar grouped by card_status
+- Clicks "Generate Card" → AI creates offer in one shot (`card_agent.py`)
+- Reviews AI-generated card (price, lead time, MOQ, payment terms, certifications, key strengths, AI verdict)
+- Can ask Q&A questions about the requirement
+- Buyer/AI answers Q&A
+- Submits card when satisfied
 
-**Flow**:
+#### Buyer side:
+- Sees "Supplier Cards (N)" tab in RequirementOverview
+- Compares submitted cards side-by-side (sortable by fit score, price, lead time)
+- Confirmation modal before selecting
+- All other suppliers rejected automatically on selection
+
+#### After selection:
+- Human-to-human deal chat opens
+- Buyer closes deal → Deal record created
+
+**Backend**: `api/app/api/v1/endpoints/cards.py`
+**AI**: `api/app/agents/card_agent.py`
+**Model**: `api/app/models/card_qa.py` (SupplierCardQA)
+**Frontend**: `SupplierLeadsPanel.jsx`, `BuyerCardsView.jsx`, `DealChat.jsx`
+
+#### Lead status lifecycle:
 ```
-Requirement Confirmed →
-Matching Service finds suppliers →
-For each match:
-  Supplier AI opens →
-  Buyer AI responds →
-  Loop continues until deal/timeout
+new → card_generating → card_draft → card_qa → card_submitted → selected|rejected → deal_open → deal_closed
 ```
 
-**Backend**:
-- `/api/v1/conversations/{leadId}` ✅
-- `/api/v1/conversations/{leadId}/messages` ✅
-- Auto-negotiation loop ✅
-
-**Frontend**:
-- ConversationView.jsx ✅
-
-**Potential Issues**:
-⚠️ Needs real testing with multiple leads  
-⚠️ Verify auto-loop doesn't hang  
-⚠️ Check deal confirmation logic
+#### Card endpoints (all at `/api/v1/cards/`):
+- `POST /leads/{id}/generate-card` — trigger AI card gen (5/min rate limit)
+- `GET /leads/{id}/card` — get card
+- `POST /leads/{id}/qa` — supplier asks question (20/min)
+- `POST /leads/{id}/qa/{qa_id}/answer` — buyer answers manually
+- `GET /leads/{id}/qa` — list all Q&A
+- `POST /leads/{id}/submit-card` — supplier submits (10/min)
+- `GET /requirements/{req_id}/cards` — buyer sees all submitted cards
+- `POST /requirements/{req_id}/select` — buyer selects supplier (10/min)
+- `POST /deal/close` — buyer closes deal
+- `GET /actions-needed` — poll for pending actions
+- `POST /conversations/{conv_id}/send` — deal chat send (30/min)
+- `GET /conversations/{conv_id}/messages` — deal chat read
 
 ---
 
 ### 6. Admin Panel ✅
 **Status**: Fully Functional
 
-**Features**:
-- Time-based password (HHMM format)
-- Dashboard with 8 metrics
-- Requirements list with expandable matches
-- Tabular supplier match display
-- User management
-- Supplier geographic map
-
-**Pages**:
-- `/admin/login` ✅
-- `/admin/dashboard` ✅
-- `/admin/requirements` ✅
-- `/admin/users` ✅
-- `/admin/map` ✅
-
-**Backend**:
-- 9 protected endpoints ✅
-- Password verification ✅
-- All data retrieval working ✅
-
-**Frontend**:
-- All 6 admin components working ✅
-- Navigation functional ✅
-- Data display correct ✅
-
-**Issues**: None known
+- Time-based password (P1 security issue — dev/demo only)
+- Dashboard, requirements, users, supplier map
+- Pages: `/admin/login`, `/admin/dashboard`, `/admin/requirements`, `/admin/users`, `/admin/map`
 
 ---
 
-### 7. Configuration Management ✅
-**Status**: Fully Functional
+### 7. Rate Limiting ✅ NEW
+**Status**: Implemented (2026-06-01)
 
-**Features**:
-- Profile markdown storage
-- Buyer AI settings
-- Seller AI settings
-- Editable configurations
-
-**Backend**:
-- `/api/v1/config` ✅
-
-**Frontend**:
-- SettingsPanel.jsx ✅
-
-**Issues**: None known
+- Library: `slowapi` (installed in venv `billion`)
+- Limiter: `api/app/core/limiter.py`
+- Auth endpoints: 5/min
+- Card generation: 5/min
+- Q&A: 20/min
+- Deal chat: 30/min
+- General: 100/min
 
 ---
 
 ## ⚠️ What Needs Testing
 
-### 1. End-to-End Flow ⚠️
-**Status**: Not Fully Tested
-
-**Critical Path**:
+### 1. End-to-End Card Flow ⚠️
+**Critical path**:
 ```
-1. New user registers → OTP → Onboarding → Profile created
-2. User creates requirement → AI enriches → Confirms
-3. Matching service runs → Leads created
-4. Supplier AI initiates → Buyer AI responds
-5. Negotiation continues → Deal confirmed
-6. Admin views all data
+Register supplier → profile complete →
+Buyer posts requirement → matching runs →
+Supplier sees lead → generates card →
+Asks Q&A (optional) → submits card →
+Buyer reviews cards → selects supplier →
+Deal chat opens → deal closed
 ```
 
-**Test Needed**:
-- [ ] Complete flow with 2 real users (buyer + supplier)
-- [ ] Verify AI negotiation works end-to-end
-- [ ] Check lead creation
-- [ ] Verify match scores
-- [ ] Test deal confirmation
+- [ ] Test with 2 real users (buyer + supplier)
+- [ ] Verify AI card generation returns sensible prices
+- [ ] Verify Q&A AI auto-answer works
+- [ ] Test buyer comparison and selection flow
+- [ ] Verify deal record created correctly
 
----
-
-### 2. AI Agent Performance ⚠️
-**Status**: Basic Testing Done
-
-**Agents to Test**:
-- [ ] Requirement Agent - Enrichment quality
-- [ ] Supplier Agent - Offer generation
-- [ ] Buyer Agent - Counter-offer logic
-- [ ] Profile Agent - External link scraping
-
-**Test Cases**:
-- Various product types
-- Different price ranges
-- Edge cases (very high MOQ, distant locations)
-- Invalid inputs
-
----
-
-### 3. Database Integrity ⚠️
-**Status**: Schema Defined, Not Stress Tested
-
-**Models**:
-- User ✅
-- AgenticProfile ✅
-- Requirement ✅
-- Lead ✅
-- Conversation ✅
-- Message ✅
-- Deal ✅
-- UserConfig ✅
-- RequirementChat ✅
-
-**Test Needed**:
-- [ ] Cascade deletes
-- [ ] Foreign key constraints
-- [ ] Concurrent writes
-- [ ] Large data volumes
-
----
-
-### 4. Error Handling ⚠️
-**Status**: Basic Error Handling Present
-
-**Areas to Verify**:
-- [ ] Network failures
-- [ ] AWS Bedrock API failures
-- [ ] GST API failures
-- [ ] Database connection issues
-- [ ] Invalid user inputs
-- [ ] Token expiration
+### 2. AI Card Quality ⚠️
+- [ ] Test card_agent.py with real supplier profiles
+- [ ] Verify price estimates are within realistic range
+- [ ] Test answer_qa_question with various question types
 
 ---
 
 ## 🐛 Known Issues
 
-### 1. Pre-existing ESLint Warnings
-**File**: `ui/src/components/chat/ChatPage.jsx`
-**Issues**:
-- Unused variable 'is_new_user'
-- Unused variable 'supplierEscalation'
-- Empty block statements
-- setState in useEffect warning
+### BUG-001: Admin Password Security (P1 — Production Blocker)
+Time-based HHMM password. Replace with proper admin accounts before production.
 
-**Impact**: Low (cosmetic)
-**Priority**: Low
+### BUG-002: CORS Open to All Origins (P1 — Production Blocker)
+`allow_origins=["*"]` in `.env`. Restrict to actual domains before production.
 
----
+### BUG-003: Matching Service Edge Cases (P2)
+Null pricing_bands/categories can cause errors. Partially mitigated by efficient matching.
 
-### 2. Matching Service Edge Cases
-**Issue**: Untested edge cases
-**Scenarios**:
-- What if no suppliers match?
-- What if supplier profile incomplete?
-- What if pricing_bands is null?
-
-**Impact**: Medium
-**Priority**: Medium
-**Action**: Add fallback logic and better error messages
-
----
-
-### 3. Admin Password Security
-**Issue**: Time-based password is weak for production
-**Current**: Password = current time (HHMM)
-**Risk**: Anyone can access with system time
-
-**Impact**: High (production)
-**Priority**: High (before production)
-**Action**: Replace with proper admin accounts + 2FA
-
----
-
-### 4. CORS Configuration
-**Current**: `allow_origins = ["*"]`
-**Risk**: Open to all domains
-
-**Impact**: Medium (production)
-**Priority**: Medium
-**Action**: Restrict to specific domains in production
+### BUG-012: Old `negotiation_round` field still in Lead model (P3)
+Not used in new flow but still in DB. Can be cleaned up in a future migration.
 
 ---
 
 ## 🔧 Technical Debt
 
-### 1. No Test Suite ❌
-**Issue**: Zero unit tests, integration tests, or E2E tests
-
-**Action Needed**:
-- [ ] Add pytest for backend
-- [ ] Add React Testing Library for frontend
-- [ ] Write tests for critical paths
-- [ ] Set up CI/CD with test automation
-
-**Priority**: High
+- No test suite for full E2E flow (only unit tests exist)
+- No logging system (structured logging not yet added)
+- No monitoring/alerting
+- No staging environment
+- JWT stored in localStorage (not httpOnly cookie)
+- `negotiation_round` and related old fields still in Lead DB table (harmless but unused)
 
 ---
 
-### 2. No Logging System ❌
-**Issue**: Limited logging, no log aggregation
+## 📊 Code Quality
 
-**Action Needed**:
-- [ ] Structured logging (JSON format)
-- [ ] Log levels (DEBUG, INFO, WARN, ERROR)
-- [ ] Log to file + stdout
-- [ ] Consider ELK stack or CloudWatch
+### Backend
+- ~35 Python files, ~4000+ lines
+- 9 SQLAlchemy models + 1 new (SupplierCardQA)
+- ~40 API endpoints (new card flow adds 12)
+- 5 AI agents (card_agent replaces negotiation loop)
+- Rate limiting on all sensitive endpoints
 
-**Priority**: Medium
-
----
-
-### 3. No Monitoring ❌
-**Issue**: No health checks, metrics, or alerting
-
-**Action Needed**:
-- [ ] Prometheus metrics
-- [ ] Grafana dashboards
-- [ ] Uptime monitoring
-- [ ] Error rate alerts
-
-**Priority**: Medium
-
----
-
-### 4. No Rate Limiting ❌
-**Issue**: APIs unprotected from abuse
-
-**Action Needed**:
-- [ ] Rate limiting middleware
-- [ ] Per-user quotas
-- [ ] IP-based throttling
-- [ ] Admin endpoint extra protection
-
-**Priority**: High (production)
-
----
-
-### 5. Database Migrations ⚠️
-**Status**: Alembic configured but migrations not versioned
-
-**Action Needed**:
-- [ ] Create initial migration
-- [ ] Version control migrations
-- [ ] Test upgrade/downgrade paths
-
-**Priority**: Medium
-
----
-
-### 6. Environment Management ⚠️
-**Issue**: Single .env file, no staging/prod separation
-
-**Action Needed**:
-- [ ] .env.development
-- [ ] .env.staging
-- [ ] .env.production
-- [ ] Secrets management (AWS Secrets Manager)
-
-**Priority**: Medium
-
----
-
-## 📊 Code Quality Metrics
-
-### Backend (Python)
-- **Files**: ~30 Python files
-- **Lines**: ~3000+ lines
-- **Models**: 9 SQLAlchemy models
-- **Endpoints**: ~30 API endpoints
-- **Agents**: 5 AI agents
-- **Services**: 3 services
-- **Linting**: Not configured
-- **Type Hints**: Partial
-- **Docstrings**: Basic
-
-### Frontend (React)
-- **Files**: 30 JSX components
-- **Lines**: ~2500+ lines
-- **Pages**: 10+ pages
-- **Components**: 30 reusable
-- **State Management**: Zustand (3 stores)
-- **Linting**: ESLint configured
-- **Type Safety**: None (no TypeScript)
+### Frontend
+- 35+ JSX components
+- New: `SupplierLeadsPanel.jsx`, `BuyerCardsView.jsx`, `DealChat.jsx`, `api/cards.js`
+- Updated: `Sidebar.jsx`, `ActionsPanel.jsx`, `RequirementOverview.jsx`, `MainPanel.jsx`
+- Zustand store updated with `goLead`, `goDealChat` actions
 
 ---
 
 ## 🚀 Deployment Readiness
 
 ### Development ✅
-- [x] Local development working
-- [x] Hot reload enabled
-- [x] Debug mode active
-- [x] Sample data available
-
-### Staging ⚠️
-- [ ] Staging environment configured
-- [ ] Staging database set up
-- [ ] Environment variables separated
-- [ ] Testing data populated
+- Local development working
+- `billion` venv has all dependencies including slowapi
 
 ### Production ❌
-- [ ] Production database secured
-- [ ] Secrets management configured
-- [ ] CORS restricted
-- [ ] Rate limiting enabled
-- [ ] Logging/monitoring set up
-- [ ] Admin auth strengthened
-- [ ] SSL/TLS configured
-- [ ] CDN for static assets
-- [ ] Database backups automated
-- [ ] Disaster recovery plan
-
----
-
-## 📈 Performance
-
-### Backend
-- **Database**: PostgreSQL (AWS RDS)
-- **API Response Time**: Not measured
-- **Concurrency**: Async/await (good)
-- **Connection Pooling**: Default SQLAlchemy
-
-### Frontend
-- **Build Size**: 411.96 kB (good)
-- **Build Time**: 905ms (excellent)
-- **Lazy Loading**: Not implemented
-- **Code Splitting**: Default Vite
-
-### AI Agents
-- **Model**: Qwen3-VL-235B
-- **Provider**: AWS Bedrock
-- **Latency**: Not measured
-- **Cost**: Pay-per-use (not monitored)
-
----
-
-## 🔐 Security Assessment
-
-### Authentication ✅
-- Phone + OTP (basic security)
-- JWT tokens (7 days expiry)
-- Password hashing: N/A (phone-based auth)
-
-### Authorization ⚠️
-- Basic role checking (buyer/supplier)
-- No fine-grained permissions
-- Admin uses time-based password (weak)
-
-### Data Protection ⚠️
-- Database: AWS RDS (SSL enabled)
-- API: No HTTPS enforcement in config
-- Secrets: In .env file (not secure for prod)
-- PII: Phone numbers stored in plaintext
-
-### Vulnerabilities to Address
-- [ ] SQL injection (using ORM, should be safe)
-- [ ] XSS (React escapes by default, but verify)
-- [ ] CSRF (need CSRF tokens)
-- [ ] Rate limiting
-- [ ] Input validation (basic, needs improvement)
-
----
-
-## 📦 Dependencies
-
-### Backend
-- **Framework**: FastAPI 0.115.5+
-- **Database**: SQLAlchemy 2.0.36+, PostgreSQL
-- **Auth**: python-jose, passlib
-- **AI**: AWS Bedrock (Qwen3)
-- **HTTP**: httpx, aiohttp
-- **Parsing**: BeautifulSoup4
-
-### Frontend
-- **Framework**: React 19.2.5
-- **Router**: React Router DOM 7.14.2
-- **State**: Zustand 5.0.12
-- **HTTP**: Axios 1.15.2
-- **Icons**: Lucide React 1.14.0
-- **Toast**: React Hot Toast 2.6.0
-- **Build**: Vite 8.0.10
-- **Styling**: Tailwind CSS 3.4.19
-
-### External Services
-- **AWS Bedrock**: AI model hosting
-- **GST API**: GSTIN verification
-- **AWS RDS**: PostgreSQL database
+- CORS must be restricted
+- Admin auth must be replaced
+- Rate limiting is in place ✅
+- Monitoring still needed
+- SSL on EC2 is configured (see DEPLOYMENT.md)
 
 ---
 
 ## 🎯 Next Priority Actions
 
-### Immediate (This Week)
-1. ✅ **Complete Admin Panel** - DONE
-2. 🔄 **End-to-End Testing** - Run complete user flow
-3. 🔄 **Fix Matching Service** - Verify profile flags
-4. 🔄 **Test AI Negotiation** - With 2 real users
+### Immediate
+1. 🔄 **End-to-end testing** — card flow with 2 real users
+2. 🔄 **AI card quality** — verify card_agent produces good output with real profiles
+3. 🔴 **Admin security** (BUG-001) — before any public access
+4. 🔴 **CORS restriction** (BUG-002) — before production
 
-### Short Term (Next 2 Weeks)
-5. Add comprehensive error handling
-6. Implement proper logging
-7. Add basic monitoring
-8. Write critical path tests
-9. Secure admin authentication
-10. Add rate limiting
-
-### Medium Term (Next Month)
-11. Complete test suite
-12. Set up staging environment
-13. Performance optimization
-14. Security audit
-15. Documentation completion
-
-### Long Term (Next Quarter)
-16. Production deployment
-17. CI/CD pipeline
-18. Advanced analytics
-19. Mobile app (if needed)
-20. Scale testing
-
----
-
-## 📝 Summary
-
-**Overall Health**: 🟢 Good (Development Phase)
-
-**Working**:
-- ✅ Core platform functional
-- ✅ AI agents operational
-- ✅ Admin panel complete
-- ✅ Basic workflows tested
-
-**Needs Attention**:
-- ⚠️ Production security
-- ⚠️ Testing coverage
-- ⚠️ Error handling
-- ⚠️ Monitoring/logging
-
-**Blockers**: None currently
-
-**Recommended Focus**: End-to-end testing with real scenarios
+### Short Term
+5. Add structured logging (structlog)
+6. Add Sentry error tracking
+7. Write integration tests for card flow endpoints
+8. Clean up unused Lead fields (negotiation_round, max_negotiation_rounds)
