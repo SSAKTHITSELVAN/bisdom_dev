@@ -4,7 +4,7 @@ import { listRequirements } from '@/api/requirements'
 import { listLeadsAsBuyer, listLeadsAsSupplier } from '@/api/leads'
 import Sidebar from './Sidebar'
 import MainPanel from './MainPanel'
-import ActionsPanel from './ActionsPanel'
+import ActionsWidget from './ActionsWidget'
 
 export default function WorkspaceLayout() {
   const [buyerRequirements, setBuyerRequirements] = useState([])
@@ -73,7 +73,7 @@ export default function WorkspaceLayout() {
         sellerLeads={sellerLeads}
         onToggleSidebar={toggleSidebar}
       />
-      <ActionsPanel />
+      <ActionsWidget refreshKey={refreshKey}/>
     </div>
   )
 }

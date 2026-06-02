@@ -182,10 +182,11 @@ export default function ConversationalLogin() {
         const response = await verifyOTP({ phone, otp: otpDigits })
         const token = response.data.access_token
         const isOnboarded = response.data.is_onboarded
+        const userId = response.data.user_id
 
         // CRITICAL: setAuth will handle localStorage with correct key 'bisdom_token'
         // This matches axios interceptor in client.js
-        setAuth(token, null, isOnboarded)
+        setAuth(token, { id: userId }, isOnboarded)
 
         addBotMessage("🎉 Verified!")
 
