@@ -24,9 +24,9 @@ export default function MainPanel({ buyerRequirements, leadsByRequirement, selle
       case 'lead': {
         const lead = sellerLeads.find(l => l.id === route.leadId)
         if (!lead) return <WelcomeScreen />
-        // If deal is open/closed, show deal chat
-        if (['deal_open', 'deal_closed'].includes(lead.status) && lead.conversation) {
-          return <DealChat lead={lead} conversationId={lead.conversation?.id} />
+        // If deal is open/closed, show deal chat (ConversationView fetches by leadId — no need for lead.conversation)
+        if (['deal_open', 'deal_closed'].includes(lead.status) || lead.card_status === 'selected') {
+          return <DealChat lead={lead} />
         }
         return <SupplierLeadsPanel lead={lead} />
       }

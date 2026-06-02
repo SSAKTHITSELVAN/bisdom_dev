@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { generateCard, getCard, submitCard, listQA, answerQuestion } from '@/api/cards'
 import { useWorkspaceStore } from '@/store/workspaceStore'
-import { ShoppingCart, Zap, CheckCircle, Star, MessageSquare, Send } from 'lucide-react'
+import { ShoppingCart, Zap, CheckCircle, Star, MessageSquare, Send, MessageCircle } from 'lucide-react'
 
 function CardView({ card, leadId, cardStatus, onSubmit, submitting }) {
   const c = card || {}
@@ -140,7 +140,7 @@ export default function SupplierLeadsPanel({ lead }) {
   const [cardStatus, setCardStatus] = useState(lead?.card_status || 'pending')
   const [generating, setGenerating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const { triggerRefresh } = useWorkspaceStore()
+  const { triggerRefresh, goDealChat } = useWorkspaceStore()
 
   const pollCard = useCallback(async () => {
     if (!lead?.id) return null
@@ -273,10 +273,22 @@ export default function SupplierLeadsPanel({ lead }) {
       )}
 
       {cardStatus === 'selected' && (
-        <div style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: 12, padding: '16px 20px', textAlign: 'center' }}>
+        <div style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: 12, padding: '20px', textAlign: 'center' }}>
           <CheckCircle size={24} color="#34d399" style={{ marginBottom: 8 }}/>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#34d399', marginBottom: 4 }}>You were selected!</div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>The buyer chose your card. Deal chat is now open.</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 16 }}>The buyer chose your card. Chat with them to close the deal.</div>
+          <button
+            onClick={() => goDealChat(lead.id)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '10px 22px', borderRadius: 10,
+              background: 'rgba(52,211,153,0.2)', border: '1px solid rgba(52,211,153,0.4)',
+              color: '#34d399', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'Montserrat,sans-serif',
+            }}
+          >
+            <MessageCircle size={15}/> Open Deal Chat
+          </button>
         </div>
       )}
 
