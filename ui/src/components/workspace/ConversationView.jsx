@@ -12,17 +12,22 @@ import {
   Sparkles, MessageSquare, Zap, Package, ThumbsUp, ThumbsDown, Clock, Shield
 } from 'lucide-react'
 
-const ROLES = {
-  ai_buyer:      { label:'AI Buyer Agent',    color:'#3b82f6', isAI:true  },
-  ai_supplier:   { label:'AI Supplier Agent', color:'#8b5cf6', isAI:true  },
-  human_buyer:   { label:'You',               color:'#10b981', isAI:false },
-  human_supplier:{ label:'Seller',            color:'#f59e0b', isAI:false },
-  system:        { label:'System',            color:'#64748b', isAI:false },
+function getRoles(isBuyer) {
+  return {
+    ai_buyer:      { label: isBuyer ? 'Your AI Agent' : 'Buyer AI',     color:'#3b82f6', isAI:true  },
+    ai_supplier:   { label: isBuyer ? 'Supplier AI' : 'Your AI Agent',  color:'#8b5cf6', isAI:true  },
+    human_buyer:   { label: isBuyer ? 'You' : 'Buyer',                  color:'#10b981', isAI:false },
+    human_supplier:{ label: isBuyer ? 'Seller' : 'You',                 color:'#f59e0b', isAI:false },
+    system:        { label:'System',                                     color:'#64748b', isAI:false },
+  }
 }
 
-function Bubble({ msg }) {
-  const role = ROLES[msg.role] || { label:msg.role, color:'#64748b', isAI:false }
-  const isMine = msg.role === 'human_buyer' || msg.role === 'ai_buyer'
+function Bubble({ msg, isBuyer }) {
+  const roles = getRoles(isBuyer)
+  const role = roles[msg.role] || { label:msg.role, color:'#64748b', isAI:false }
+  const isMine = isBuyer
+    ? (msg.role === 'human_buyer' || msg.role === 'ai_buyer')
+    : (msg.role === 'human_supplier' || msg.role === 'ai_supplier')
 
   if (msg.role === 'system') return (
     <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
@@ -513,7 +518,7 @@ export default function ConversationView({ leadId }) {
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <span style={{ fontSize:15, fontWeight:700, color:'#fff', letterSpacing:'-0.01em' }}>
-                {counterpart?.trade_name || `Seller #${lead?.supplier_id || leadId}`}
+                {counterpart?.trade_name || (isBuyer ? `Seller #${lead?.supplier_id || leadId}` : `Buyer #${lead?.buyer_id || leadId}`)}
               </span>
               {lead && <StatusBadge status={lead.status}/>}
             </div>
@@ -666,7 +671,7 @@ export default function ConversationView({ leadId }) {
             </div>
           )}
           {conv?.messages?.map((m,i) => (
-            <Bubble key={m.id||i} msg={m}/>
+            <Bubble key={m.id||i} msg={m} isBuyer={isBuyer}/>
           ))}
 
           {/* End-of-messages paused indicator */}
