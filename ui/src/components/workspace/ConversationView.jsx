@@ -618,7 +618,7 @@ export default function ConversationView({ leadId }) {
                   <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:14 }}>
                     <AlertTriangle size={20} color="#f59e0b" style={{ margin:'0 auto 6px' }}/>
                     <p style={{ fontSize:12, fontWeight:600, color:'#f59e0b', marginBottom:3 }}>Your Decision Needed</p>
-                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use the Actions button above or the bar to accept, renegotiate, or decline.</p>
+                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use Actions to accept/decline, or toggle Live Chat to message the supplier directly.</p>
                     <button onClick={() => setShowActions(true)} style={{ marginTop:8, fontSize:11, fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.15)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:6, padding:'6px 14px', cursor:'pointer' }}>Open Actions</button>
                   </div>
                 </div>
@@ -631,7 +631,7 @@ export default function ConversationView({ leadId }) {
                     <p style={{ fontSize:12, fontWeight:600, color:'#a78bfa', marginBottom:3 }}>
                       {lead?.status === 'awaiting_supplier_confirm' ? 'Buyer accepted — confirm or reject' : 'Your response needed'}
                     </p>
-                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use the Actions button or bar above.</p>
+                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use Actions above, or toggle Live Chat to reply directly.</p>
                     <button onClick={() => setShowActions(true)} style={{ marginTop:8, fontSize:11, fontWeight:700, color:'#a78bfa', background:'rgba(167,139,250,0.15)', border:'1px solid rgba(167,139,250,0.3)', borderRadius:6, padding:'6px 14px', cursor:'pointer' }}>Open Actions</button>
                   </div>
                 </div>
