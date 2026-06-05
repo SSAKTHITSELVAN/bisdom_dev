@@ -242,7 +242,7 @@ function ConfirmationBar({ lead, isBuyer, onRefresh }) {
   }
 
   const barStyle = (bg, border) => ({
-    margin: '12px 24px 0', padding: '14px 18px',
+    margin: '8px 12px 0', padding: '10px 14px',
     background: bg, border: `1px solid ${border}`,
     borderRadius: 12, display: 'flex', alignItems: 'center', gap: 14
   })
@@ -505,147 +505,74 @@ export default function ConversationView({ leadId }) {
   return (
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
       <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#0a1225', overflow:'hidden' }}>
-        {/* Sticky top section */}
+        {/* Sticky top section — compact on mobile */}
         <div style={{ flexShrink:0 }}>
         {/* Header */}
-        <div style={{
-          padding:'14px 24px', borderBottom:'1px solid rgba(255,255,255,0.06)',
-          display:'flex', alignItems:'center', gap:14,
+        <div className="chat-header" style={{
+          padding:'10px 16px', borderBottom:'1px solid rgba(255,255,255,0.06)',
+          display:'flex', alignItems:'center', gap:10,
           background:'linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(10,18,37,0.95) 100%)'
         }}>
           <button onClick={() => route.reqId ? goRequirement(route.reqId) : goWelcome()}
             style={{
-              width:32, height:32, borderRadius:8, background:'rgba(255,255,255,0.05)',
+              width:30, height:30, borderRadius:8, background:'rgba(255,255,255,0.05)',
               border:'1px solid rgba(255,255,255,0.08)', cursor:'pointer',
-              display:'flex', alignItems:'center', justifyContent:'center'
+              display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0
             }}>
-            <ChevronLeft size={15} color="rgba(255,255,255,0.6)"/>
+            <ChevronLeft size={14} color="rgba(255,255,255,0.6)"/>
           </button>
 
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <span style={{ fontSize:15, fontWeight:700, color:'#fff', letterSpacing:'-0.01em' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontSize:14, fontWeight:700, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                 {counterpart?.trade_name || (isBuyer ? `Seller #${lead?.supplier_id || leadId}` : `Buyer #${lead?.buyer_id || leadId}`)}
               </span>
               {lead && <StatusBadge status={lead.status}/>}
             </div>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:3, display:'flex', gap:12, alignItems:'center' }}>
-              {counterpart?.state && <span>{counterpart.city || ''}, {counterpart.state}</span>}
-              <span style={{ color:'rgba(255,255,255,0.15)' }}>|</span>
-              <span>Round {lead?.negotiation_round||0}</span>
-              {lead?.current_offer_price && <>
-                <span style={{ color:'rgba(255,255,255,0.15)' }}>|</span>
-                <span style={{ color:'#10b981', fontWeight:600 }}>Best: ₹{lead.current_offer_price.toLocaleString()}/unit</span>
-              </>}
+            <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', marginTop:2 }}>
+              {lead?.current_offer_price && <span style={{ color:'#10b981', fontWeight:600 }}>₹{lead.current_offer_price.toLocaleString()}/unit</span>}
+              {lead?.current_offer_price && lead?.requirement?.product && <span style={{ color:'rgba(255,255,255,0.15)' }}> · </span>}
+              <span>{lead?.requirement?.product || ''}</span>
             </div>
           </div>
 
           <button onClick={handleToggle}
             style={{
-              display:'flex', alignItems:'center', gap:6, padding:'8px 14px',
+              display:'flex', alignItems:'center', gap:4, padding:'6px 10px',
               background: chatOn ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)',
               border: `1px solid ${chatOn ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
-              borderRadius:8, cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif'
+              borderRadius:7, cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif', flexShrink:0
             }}>
             {chatOn
-              ? <><ToggleRight size={15} color="#10b981"/><span style={{fontSize:11,fontWeight:700,color:'#10b981'}}>Live Chat</span></>
-              : <><ToggleLeft size={15} color="rgba(255,255,255,0.4)"/><span style={{fontSize:11,fontWeight:600,color:'rgba(255,255,255,0.4)'}}>AI Mode</span></>
+              ? <><ToggleRight size={14} color="#10b981"/><span className="hide-mobile" style={{fontSize:10,fontWeight:700,color:'#10b981'}}>Live</span></>
+              : <><ToggleLeft size={14} color="rgba(255,255,255,0.4)"/><span className="hide-mobile" style={{fontSize:10,fontWeight:600,color:'rgba(255,255,255,0.4)'}}>AI</span></>
             }
           </button>
 
           {canAct && (
             <button onClick={() => setShowActions(p => !p)}
               style={{
-                display:'flex', alignItems:'center', gap:6, padding:'8px 14px',
+                display:'flex', alignItems:'center', gap:4, padding:'6px 10px',
                 background: showActions ? 'rgba(245,158,11,0.15)' : 'rgba(245,158,11,0.08)',
                 border:'1px solid rgba(245,158,11,0.25)',
-                borderRadius:8, cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif'
+                borderRadius:7, cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif', flexShrink:0
               }}>
-              <AlertTriangle size={14} color="#f59e0b"/>
-              <span style={{ fontSize:11, fontWeight:700, color:'#f59e0b' }}>Actions</span>
+              <AlertTriangle size={13} color="#f59e0b"/>
+              <span className="hide-mobile" style={{ fontSize:10, fontWeight:700, color:'#f59e0b' }}>Actions</span>
             </button>
           )}
 
           <button onClick={fetch} style={{
             background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
-            width:32, height:32, borderRadius:8, cursor:'pointer',
+            width:28, height:28, borderRadius:7, cursor:'pointer', flexShrink:0,
             display:'flex', alignItems:'center', justifyContent:'center'
           }}>
-            <RefreshCw size={13} color="rgba(255,255,255,0.4)"/>
+            <RefreshCw size={12} color="rgba(255,255,255,0.4)"/>
           </button>
         </div>
 
-        {/* Confirmation Bar */}
+        {/* Confirmation Bar — compact */}
         <ConfirmationBar lead={lead} isBuyer={isBuyer} onRefresh={fetch}/>
-
-        {/* Chat Summary Strip */}
-        <ChatSummaryStrip lead={lead} isBuyer={isBuyer} counterpart={counterpart}/>
-
-        {/* Requirement Info Card */}
-        {lead?.requirement && (
-          <div style={{
-            margin:'12px 24px 0', padding:'14px 18px',
-            background:'rgba(96,165,250,0.06)', border:'1px solid rgba(96,165,250,0.15)',
-            borderRadius:12, display:'flex', alignItems:'flex-start', gap:14
-          }}>
-            <div style={{
-              width:36, height:36, borderRadius:9, flexShrink:0,
-              background:'rgba(96,165,250,0.15)', border:'1px solid rgba(96,165,250,0.25)',
-              display:'flex', alignItems:'center', justifyContent:'center'
-            }}>
-              <Package size={16} color="#60a5fa"/>
-            </div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ fontSize:10, fontWeight:700, color:'rgba(96,165,250,0.7)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6 }}>
-                Matched For This Requirement
-              </p>
-              <p style={{ fontSize:14, fontWeight:700, color:'#fff', marginBottom:4 }}>
-                {lead.requirement.product}
-              </p>
-              <div style={{ display:'flex', gap:12, flexWrap:'wrap', fontSize:11, color:'rgba(255,255,255,0.5)' }}>
-                <span>Qty: {lead.requirement.quantity} {lead.requirement.quantity_unit || 'units'}</span>
-                {lead.requirement.budget_max && (
-                  <>
-                    <span style={{ color:'rgba(255,255,255,0.2)' }}>|</span>
-                    <span>Budget: ₹{lead.requirement.budget_max.toLocaleString()}/{lead.requirement.quantity_unit || 'unit'}</span>
-                  </>
-                )}
-                {lead.requirement.delivery_location && (
-                  <>
-                    <span style={{ color:'rgba(255,255,255,0.2)' }}>|</span>
-                    <span>{lead.requirement.delivery_location}</span>
-                  </>
-                )}
-                {lead.fit_score && (
-                  <>
-                    <span style={{ color:'rgba(255,255,255,0.2)' }}>|</span>
-                    <span style={{ color:'#10b981', fontWeight:600 }}>Match: {lead.fit_score.toFixed(0)}%</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* AI paused banner — shown to whoever needs to act */}
-        {((isBuyer && lead?.ai_paused_for_buyer) || (!isBuyer && (lead?.ai_paused_for_supplier || lead?.status === 'awaiting_supplier_confirm'))) && (
-          <div style={{
-            margin:'12px 24px 0', padding:'12px 16px',
-            background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)',
-            borderRadius:10, display:'flex', alignItems:'center', gap:10
-          }}>
-            <AlertTriangle size={15} color="#f59e0b"/>
-            <span style={{ fontSize:12, color:'#f59e0b', fontWeight:600, flex:1 }}>
-              {lead?.status === 'awaiting_supplier_confirm' && !isBuyer
-                ? 'Buyer accepted the deal — confirm or reject'
-                : 'Your action needed — AI is waiting'}
-            </span>
-            <button onClick={() => setShowActions(true)}
-              style={{ fontSize:11, fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.15)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:6, padding:'6px 12px', cursor:'pointer' }}>
-              Act Now
-            </button>
-          </div>
-        )}
 
         </div>{/* end sticky top section */}
 

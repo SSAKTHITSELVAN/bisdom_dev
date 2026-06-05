@@ -64,6 +64,11 @@ body {
     grid-template-columns: 1fr !important;
     gap: 10px !important;
   }
+
+  /* Hide text labels on mobile, keep icons */
+  .hide-mobile {
+    display: none !important;
+  }
 }
 
 /* ── Sidebar ── */
