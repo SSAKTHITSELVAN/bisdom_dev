@@ -6,9 +6,9 @@ import Spinner from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
 
 const SUGGESTIONS = [
-  'I need 500kg mild steel angle bars delivered to Chennai within 2 weeks, budget ₹85,000',
   '200 cotton t-shirts, 100% cotton 180GSM, black, sizes S-XL, Tirupur, under ₹200/piece',
-  '50 industrial electric motors, 2HP 3-phase, Coimbatore, delivery in 10 days',
+  '500 meters polyester fabric, 120GSM, white, delivery to Mumbai in 10 days',
+  '1000 bed sheets, cotton 300TC, queen size, Coimbatore, budget ₹350/piece',
 ]
 
 function getQuickReplies(lastAiMsg) {

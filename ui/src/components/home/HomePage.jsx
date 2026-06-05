@@ -7,9 +7,9 @@ import toast from 'react-hot-toast'
 import { Send, Sparkles, ChevronRight, CheckCircle } from 'lucide-react'
 
 const SUGGESTIONS = [
-  'I need 500kg mild steel rods delivered to Chennai',
   '200 cotton t-shirts, black, 180GSM, under ₹180/piece',
-  '50 industrial motors, 2HP, 3-phase, Coimbatore',
+  '500 meters silk fabric, Banarasi, for sarees, Varanasi',
+  '1000 polo shirts, pique cotton, mixed colors, Tirupur',
 ]
 
 function getQuickReplies(lastAiMsg) {
