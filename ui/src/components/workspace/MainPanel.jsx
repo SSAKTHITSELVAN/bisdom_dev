@@ -16,46 +16,45 @@ export default function MainPanel({ buyerRequirements, leadsByRequirement, selle
 
   const renderContent = () => {
     switch (route.view) {
-      case 'profile':         return <ProfilePanel />
-      case 'settings':        return <SettingsPanel />
-      case 'new_requirement': return <NewRequirementChat />
-
-      // Supplier: view their lead chat
+      // Chat views — they manage their own flex/scroll layout
       case 'lead': {
         const lead = sellerLeads.find(l => l.id === route.leadId)
-        if (!lead) return <WelcomeScreen />
+        if (!lead) return <div style={{ flex:1, overflow:'auto' }}><WelcomeScreen /></div>
         return <ConversationView leadId={lead.id} />
       }
 
-      // Deal chat (after selection)
       case 'deal_chat': {
         const lead = sellerLeads.find(l => l.id === route.leadId)
           || Object.values(leadsByRequirement).flat().find(l => l.id === route.leadId)
-        if (!lead) return <WelcomeScreen />
+        if (!lead) return <div style={{ flex:1, overflow:'auto' }}><WelcomeScreen /></div>
         return <DealChat lead={lead} conversationId={route.convId || lead.conversation?.id} />
       }
 
-      // Buyer: view conversation with a specific supplier under a requirement
       case 'chat': {
         const leads = leadsByRequirement[route.reqId] || []
         const lead = leads.find(l => l.id === route.leadId)
-        if (!lead) return <WelcomeScreen />
+        if (!lead) return <div style={{ flex:1, overflow:'auto' }}><WelcomeScreen /></div>
         return <DealChat lead={lead} conversationId={lead.conversation?.id} />
       }
+
+      // Scrollable views — wrap in overflow container
+      case 'profile':         return <div style={{ flex:1, overflow:'auto' }}><ProfilePanel /></div>
+      case 'settings':        return <div style={{ flex:1, overflow:'auto' }}><SettingsPanel /></div>
+      case 'new_requirement': return <div style={{ flex:1, overflow:'auto' }}><NewRequirementChat /></div>
 
       case 'general_chat': {
         const req = buyerRequirements.find(r => r.id === route.reqId)
         const leads = leadsByRequirement[route.reqId] || []
-        return <GeneralReqChat req={req} leads={leads} />
+        return <div style={{ flex:1, overflow:'auto' }}><GeneralReqChat req={req} leads={leads} /></div>
       }
 
       case 'requirement': {
         const req = buyerRequirements.find(r => r.id === route.reqId)
         const leads = leadsByRequirement[route.reqId] || []
-        return <RequirementOverview req={req} leads={leads} />
+        return <div style={{ flex:1, overflow:'auto' }}><RequirementOverview req={req} leads={leads} /></div>
       }
 
-      default: return <WelcomeScreen />
+      default: return <div style={{ flex:1, overflow:'auto' }}><WelcomeScreen /></div>
     }
   }
 
@@ -104,7 +103,7 @@ export default function MainPanel({ buyerRequirements, leadsByRequirement, selle
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {renderContent()}
       </div>
     </div>
