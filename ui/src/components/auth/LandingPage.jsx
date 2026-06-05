@@ -118,9 +118,9 @@ export default function LandingPage() {
     setLoading(true)
     try {
       const res = await verifyOTP({ phone: phoneNumber, otp })
-      const { access_token, is_onboarded, is_new_user } = res.data
+      const { access_token, is_onboarded, is_new_user, user_id } = res.data
 
-      setAuth(access_token, null, is_onboarded)
+      setAuth(access_token, { id: user_id, phone: phoneNumber }, is_onboarded)
 
       if (!is_onboarded) {
         if (authMode === 'signin') {

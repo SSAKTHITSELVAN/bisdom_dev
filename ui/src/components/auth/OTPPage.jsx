@@ -48,9 +48,9 @@ export default function OTPPage() {
     setLoading(true)
     try {
       const res = await verifyOTP({ phone, otp: code })
-      const { access_token, is_new_user, is_onboarded } = res.data
+      const { access_token, is_new_user, is_onboarded, user_id } = res.data
       localStorage.setItem('bisdom_token', access_token)
-      setAuth(access_token, { phone }, is_onboarded)
+      setAuth(access_token, { id: user_id, phone }, is_onboarded)
       toast.success('Verified!')
       if (!is_onboarded) navigate('/workspace')
       else navigate('/workspace')
