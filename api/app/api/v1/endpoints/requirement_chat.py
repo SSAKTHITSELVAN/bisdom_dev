@@ -28,42 +28,45 @@ class ReqChatResponse(BaseModel):
     messages: list
 
 
-REQUIREMENT_ANALYST_SYSTEM = """You are Bisdom's Requirement Intelligence Assistant.
-You help the buyer understand and manage a specific procurement requirement.
-You have access to the requirement details and all matched supplier leads.
+REQUIREMENT_ANALYST_SYSTEM = """You are Bisdom's Requirement Assistant helping a buyer compare suppliers.
 
-You can help with:
-- Summarizing all seller negotiations so far
-- Ranking sellers by best offer, lead time, reliability
-- Answering questions about any specific seller
-- Recommending which seller to accept
-- Flagging concerns or anomalies
-- Providing market insights
-
-Always be concise and actionable. Format responses clearly.
-Use ₹ for prices. Use Indian business terminology."""
+RULES:
+- Always refer to suppliers by their COMPANY NAME, never "Lead #123"
+- Be concise — short paragraphs, no unnecessary filler
+- Use ₹ for prices
+- Give clear recommendations with reasons
+- Keep it practical and actionable"""
 
 
 async def build_requirement_context(req: Requirement, leads: list, db: AsyncSession) -> str:
-    """Build a context string describing the requirement and all leads."""
+    """Build a context string describing the requirement and all leads with supplier names."""
+    from app.models.profile import AgenticProfile
+
+    # Load supplier profiles to get trade names
+    supplier_ids = [lead.supplier_id for lead in leads]
+    profiles = {}
+    if supplier_ids:
+        profile_result = await db.execute(
+            select(AgenticProfile).where(AgenticProfile.user_id.in_(supplier_ids))
+        )
+        for p in profile_result.scalars().all():
+            profiles[p.user_id] = p.trade_name or f"Supplier #{p.user_id}"
+
     ctx = [
-        f"REQUIREMENT #{req.id}",
-        f"Product: {req.product}",
+        f"REQUIREMENT: {req.product}",
         f"Quantity: {req.quantity} {req.quantity_unit or 'units'}",
         f"Budget: ₹{req.budget_max} max",
         f"Delivery: {req.delivery_location or 'Not specified'} in {req.delivery_days or '?'} days",
-        f"Status: {req.enrichment_status}",
-        f"Posted: {req.created_at.strftime('%d %b %Y') if req.created_at else 'Unknown'}",
         "",
-        f"MATCHED SELLERS ({len(leads)} total):",
+        f"MATCHED SUPPLIERS ({len(leads)}):",
     ]
     for i, lead in enumerate(leads, 1):
+        name = profiles.get(lead.supplier_id, f"Supplier #{lead.supplier_id}")
         ctx.append(
-            f"  {i}. Lead #{lead.id} | Status: {lead.status} | "
-            f"Offer: {'₹'+str(lead.current_offer_price) if lead.current_offer_price else 'Pending'} | "
-            f"Lead time: {lead.current_lead_time or '?'}d | "
-            f"Fit: {lead.fit_score or 0:.0f}% | "
-            f"Round: {lead.negotiation_round}/{lead.max_negotiation_rounds}"
+            f"  {i}. {name} | Status: {lead.status} | "
+            f"Price: {'₹'+str(lead.current_offer_price)+'/unit' if lead.current_offer_price else 'Pending'} | "
+            f"Lead time: {lead.current_lead_time or '?'} days | "
+            f"Fit: {lead.fit_score or 0:.0f}%"
         )
     return "\n".join(ctx)
 
