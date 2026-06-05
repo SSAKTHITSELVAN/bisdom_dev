@@ -202,8 +202,15 @@ async def supplier_agent_respond(
         if tag in clean:
             clean = clean[:clean.index(tag)].strip()
 
+    # If model only output the tag with no message, use a natural fallback
+    if not clean or clean.startswith("<"):
+        if needs_input:
+            clean = "Let me check with my team on this and get back to you shortly."
+        else:
+            clean = "Thank you, I'll review this and respond soon."
+
     return {
-        "message": clean or response,
+        "message": clean,
         "needs_supplier_input": needs_input,
         "supplier_input_reason": input_reason,
         "extracted_offer": extracted_offer,

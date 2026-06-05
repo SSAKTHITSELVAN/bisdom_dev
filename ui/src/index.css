@@ -71,6 +71,11 @@ body {
   }
 }
 
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 /* ── Sidebar ── */
 .sidebar {
   width: var(--sidebar-width);

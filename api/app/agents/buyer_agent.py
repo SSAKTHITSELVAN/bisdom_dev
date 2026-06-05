@@ -265,8 +265,15 @@ async def buyer_agent_respond(
     if "<NEEDS_BUYER_INPUT" in clean:
         clean = clean[:clean.index("<NEEDS_BUYER_INPUT")].strip()
 
+    # If model only output the tag with no message, use a natural fallback
+    if not clean or clean.startswith("<"):
+        if needs_input:
+            clean = "I need to check with my team on this. Will get back to you shortly."
+        else:
+            clean = "Thanks, let me review this."
+
     return {
-        "message": clean or response,
+        "message": clean,
         "needs_buyer_input": needs_input,
         "buyer_input_reason": input_reason,
         "extracted_offer": extracted_offer,
