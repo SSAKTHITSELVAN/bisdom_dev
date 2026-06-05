@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { listRequirements } from '@/api/requirements'
 import { listLeadsAsBuyer, listLeadsAsSupplier } from '@/api/leads'
+import { getPendingActions } from '@/api/conversations'
 import Sidebar from './Sidebar'
 import MainPanel from './MainPanel'
 import ActionsWidget from './ActionsWidget'
@@ -12,6 +13,7 @@ export default function WorkspaceLayout() {
   const [sellerLeads, setSellerLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const { refreshKey, syncFromHash } = useWorkspaceStore()
 
   // Listen for hash changes
@@ -39,7 +41,18 @@ export default function WorkspaceLayout() {
       setLoading(false)
     }
     load()
-    // No automatic polling - only refresh when user manually triggers via refreshKey
+  }, [refreshKey])
+
+  useEffect(() => {
+    const loadPending = async () => {
+      try {
+        const res = await getPendingActions()
+        setPendingCount((res.data.pending || []).length)
+      } catch {}
+    }
+    loadPending()
+    const t = setInterval(loadPending, 20000)
+    return () => clearInterval(t)
   }, [refreshKey])
 
   const leadsByRequirement = buyerLeads.reduce((acc, lead) => {
@@ -72,6 +85,7 @@ export default function WorkspaceLayout() {
         leadsByRequirement={leadsByRequirement}
         sellerLeads={sellerLeads}
         onToggleSidebar={toggleSidebar}
+        pendingCount={pendingCount}
       />
       <ActionsWidget refreshKey={refreshKey}/>
     </div>

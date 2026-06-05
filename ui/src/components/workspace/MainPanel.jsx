@@ -10,7 +10,7 @@ import GeneralReqChat from './GeneralReqChat'
 import DealChat from './DealChat'
 import ConversationView from './ConversationView'
 
-export default function MainPanel({ buyerRequirements, leadsByRequirement, sellerLeads, onToggleSidebar }) {
+export default function MainPanel({ buyerRequirements, leadsByRequirement, sellerLeads, onToggleSidebar, pendingCount = 0 }) {
   const { route } = useWorkspaceStore()
   const { user } = useAuthStore()
 
@@ -61,7 +61,7 @@ export default function MainPanel({ buyerRequirements, leadsByRequirement, selle
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-      {/* Mobile header with hamburger */}
+      {/* Mobile header with hamburger + notification badge */}
       <div className="mobile-header" style={{
         display: 'none',
         alignItems: 'center',
@@ -82,11 +82,23 @@ export default function MainPanel({ buyerRequirements, leadsByRequirement, selle
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
+            position: 'relative',
           }}
         >
           <Menu size={18} color="rgba(255,255,255,0.8)" />
+          {pendingCount > 0 && (
+            <span style={{
+              position:'absolute', top:-4, right:-4,
+              background:'#ef4444', color:'#fff',
+              fontSize:9, fontWeight:800, borderRadius:'50%',
+              width:16, height:16, display:'flex', alignItems:'center', justifyContent:'center',
+              border:'2px solid #0d1f3c'
+            }}>
+              {pendingCount}
+            </span>
+          )}
         </button>
-        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.3px', background: 'linear-gradient(135deg,#fff,#93c5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <span style={{ flex:1, fontSize: 16, fontWeight: 700, letterSpacing: '-0.3px', background: 'linear-gradient(135deg,#fff,#93c5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           Bisdom
         </span>
       </div>

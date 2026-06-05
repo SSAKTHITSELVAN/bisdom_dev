@@ -412,7 +412,11 @@ export default function ConversationView({ leadId }) {
   const bottomRef = useRef(null)
   const { route, goRequirement, goWelcome } = useWorkspaceStore()
   const currentUser = useAuthStore(s => s.user)
-  const isBuyer = lead ? currentUser?.id === lead.buyer_id : true
+  const isBuyer = lead
+    ? (currentUser?.id
+        ? currentUser.id === lead.buyer_id
+        : route.view !== 'lead')
+    : route.view !== 'lead'
 
   const fetch = async () => {
     try {
@@ -646,7 +650,7 @@ export default function ConversationView({ leadId }) {
         </div>{/* end sticky top section */}
 
         {/* Messages */}
-        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px 180px 24px' }}>
+        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px 24px 24px' }}>
           {loading && (
             <div style={{ display:'flex', justifyContent:'center', padding:48 }}>
               <Spinner size={24} color="rgba(255,255,255,0.3)"/>
@@ -719,8 +723,8 @@ export default function ConversationView({ leadId }) {
           <div ref={bottomRef}/>
         </div>
 
-        {/* Input area */}
-        <div style={{ padding:'16px 24px 20px', borderTop:'1px solid rgba(255,255,255,0.06)', background:'rgba(10,18,37,0.6)' }}>
+        {/* Input area — sticky bottom */}
+        <div style={{ flexShrink:0, padding:'16px 24px 20px', borderTop:'1px solid rgba(255,255,255,0.06)', background:'#0a1225' }}>
           {chatOn && conv ? (
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <div style={{
