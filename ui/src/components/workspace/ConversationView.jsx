@@ -501,6 +501,8 @@ export default function ConversationView({ leadId }) {
   return (
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
       <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#0a1225', overflow:'hidden' }}>
+        {/* Sticky top section */}
+        <div style={{ flexShrink:0 }}>
         {/* Header */}
         <div style={{
           padding:'14px 24px', borderBottom:'1px solid rgba(255,255,255,0.06)',
@@ -640,6 +642,8 @@ export default function ConversationView({ leadId }) {
             </button>
           </div>
         )}
+
+        </div>{/* end sticky top section */}
 
         {/* Messages */}
         <div style={{ flex:1, overflowY:'auto', padding:'20px 24px 180px 24px' }}>
