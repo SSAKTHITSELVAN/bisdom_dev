@@ -1,46 +1,14 @@
-import { useState } from 'react'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { useAuthStore } from '@/store/authStore'
-import { Menu, MessageCircle, CreditCard } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import NewRequirementChat from './NewRequirementChat'
 import RequirementOverview from './RequirementOverview'
 import WelcomeScreen from './WelcomeScreen'
 import ProfilePanel from './ProfileEditorV4'
 import SettingsPanel from './SettingsPanel'
 import GeneralReqChat from './GeneralReqChat'
-import SupplierLeadsPanel from './SupplierLeadsPanel'
 import DealChat from './DealChat'
 import ConversationView from './ConversationView'
-
-function SupplierLeadWithChat({ lead }) {
-  const [tab, setTab] = useState('chat')
-
-  const tabStyle = (active) => ({
-    flex: 1, padding: '10px 0', fontSize: 12, fontWeight: 700,
-    fontFamily: 'Montserrat,sans-serif', cursor: 'pointer',
-    background: active ? 'rgba(96,165,250,0.15)' : 'transparent',
-    color: active ? '#60a5fa' : 'rgba(255,255,255,0.4)',
-    border: 'none', borderBottom: active ? '2px solid #60a5fa' : '2px solid transparent',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    transition: 'all 0.2s',
-  })
-
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <button onClick={() => setTab('chat')} style={tabStyle(tab === 'chat')}>
-          <MessageCircle size={14} /> Chat
-        </button>
-        <button onClick={() => setTab('card')} style={tabStyle(tab === 'card')}>
-          <CreditCard size={14} /> Card
-        </button>
-      </div>
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
-        {tab === 'chat' ? <ConversationView leadId={lead.id} /> : <SupplierLeadsPanel lead={lead} />}
-      </div>
-    </div>
-  )
-}
 
 export default function MainPanel({ buyerRequirements, leadsByRequirement, sellerLeads, onToggleSidebar }) {
   const { route } = useWorkspaceStore()
@@ -52,15 +20,11 @@ export default function MainPanel({ buyerRequirements, leadsByRequirement, selle
       case 'settings':        return <SettingsPanel />
       case 'new_requirement': return <NewRequirementChat />
 
-      // Supplier: view their lead — chat + card tabs
+      // Supplier: view their lead chat
       case 'lead': {
         const lead = sellerLeads.find(l => l.id === route.leadId)
         if (!lead) return <WelcomeScreen />
-        // If deal is open/closed, show deal chat directly
-        if (['deal_open', 'deal_closed'].includes(lead.status) || lead.card_status === 'selected') {
-          return <DealChat lead={lead} />
-        }
-        return <SupplierLeadWithChat lead={lead} />
+        return <ConversationView leadId={lead.id} />
       }
 
       // Deal chat (after selection)
