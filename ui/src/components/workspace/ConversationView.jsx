@@ -12,18 +12,19 @@ import {
   Sparkles, MessageSquare, Zap, Package, ThumbsUp, ThumbsDown, Clock, Shield
 } from 'lucide-react'
 
-function getRoles(isBuyer) {
+function getRoles(isBuyer, counterpartName) {
+  const other = counterpartName || (isBuyer ? 'Supplier' : 'Buyer')
   return {
-    ai_buyer:      { label: isBuyer ? 'Your AI Agent' : 'Buyer AI',     color:'#3b82f6', isAI:true  },
-    ai_supplier:   { label: isBuyer ? 'Supplier AI' : 'Your AI Agent',  color:'#8b5cf6', isAI:true  },
-    human_buyer:   { label: isBuyer ? 'You' : 'Buyer',                  color:'#10b981', isAI:false },
-    human_supplier:{ label: isBuyer ? 'Seller' : 'You',                 color:'#f59e0b', isAI:false },
-    system:        { label:'System',                                     color:'#64748b', isAI:false },
+    ai_buyer:      { label: isBuyer ? 'You (AI)' : other,     color:'#3b82f6', isAI:true  },
+    ai_supplier:   { label: isBuyer ? other : 'You (AI)',      color:'#8b5cf6', isAI:true  },
+    human_buyer:   { label: isBuyer ? 'You' : other,           color:'#10b981', isAI:false },
+    human_supplier:{ label: isBuyer ? other : 'You',           color:'#f59e0b', isAI:false },
+    system:        { label:'System',                            color:'#64748b', isAI:false },
   }
 }
 
-function Bubble({ msg, isBuyer }) {
-  const roles = getRoles(isBuyer)
+function Bubble({ msg, isBuyer, counterpartName }) {
+  const roles = getRoles(isBuyer, counterpartName)
   const role = roles[msg.role] || { label:msg.role, color:'#64748b', isAI:false }
   const isMine = isBuyer
     ? (msg.role === 'human_buyer' || msg.role === 'ai_buyer')
@@ -671,7 +672,7 @@ export default function ConversationView({ leadId }) {
             </div>
           )}
           {conv?.messages?.map((m,i) => (
-            <Bubble key={m.id||i} msg={m} isBuyer={isBuyer}/>
+            <Bubble key={m.id||i} msg={m} isBuyer={isBuyer} counterpartName={counterpart?.trade_name}/>
           ))}
 
           {/* End-of-messages paused indicator */}
