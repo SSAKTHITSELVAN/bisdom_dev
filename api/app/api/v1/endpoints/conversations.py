@@ -734,8 +734,21 @@ async def _trigger_supplier_ai_response(
     if response.get("extracted_offer"):
         lead.current_offer_price = response["extracted_offer"].get("price_per_unit")
         lead.current_lead_time = response["extracted_offer"].get("lead_time_days")
-    if response.get("needs_supplier_input"):
+
+    # Final offer built by supplier AI → pause for human seller to approve/edit/decline
+    final_offer = response.get("final_offer")
+    if final_offer:
+        offer_message = final_offer.get("message") or response["message"]
+        lead.status = "pending_supplier_approval"
         lead.ai_paused_for_supplier = True
+        lead.pending_offer_message = offer_message
+        if final_offer.get("price_per_unit"):
+            lead.current_offer_price = final_offer["price_per_unit"]
+        if final_offer.get("lead_time_days"):
+            lead.current_lead_time = final_offer["lead_time_days"]
+    elif response.get("needs_supplier_input"):
+        lead.ai_paused_for_supplier = True
+
     lead.negotiation_round += 1
 
     # Update AI context — use consistent role names for the agent loop
@@ -794,12 +807,7 @@ async def _trigger_buyer_ai_response(
     )
     db.add(msg)
 
-    if response.get("is_deal_ready"):
-        # AI thinks deal is ready — pause for supplier to approve the offer first
-        lead.status = "pending_supplier_approval"
-        lead.ai_paused_for_supplier = True
-        lead.pending_offer_message = response["message"]
-    elif response.get("needs_buyer_input"):
+    if response.get("needs_buyer_input"):
         lead.ai_paused_for_buyer = True
     lead.negotiation_round += 1
 
@@ -880,6 +888,9 @@ async def _run_autonomous_negotiation_round(lead_id: int):
                     if not supplier_msg:
                         logger.warning(f"[AUTO] Lead #{lead_id}: supplier response failed, stopping")
                         return
+                    if lead.status == "pending_supplier_approval":
+                        logger.info(f"[AUTO] Lead #{lead_id}: supplier AI built final offer, waiting for human seller approval")
+                        return
                     if lead.ai_paused_for_supplier:
                         logger.info(f"[AUTO] Lead #{lead_id}: supplier escalated, stopping")
                         return
@@ -911,11 +922,6 @@ async def _run_autonomous_negotiation_round(lead_id: int):
                         logger.info(f"[AUTO] Lead #{lead_id}: buyer walked away, stopping")
                         return
 
-                    # pending_supplier_approval = AI thinks deal is ready, supplier must approve first
-                    if lead.status == "pending_supplier_approval":
-                        await db.commit()
-                        logger.info(f"[AUTO] Lead #{lead_id}: pending_supplier_approval, paused for supplier review")
-                        return
 
                     if lead.status == "deal_closed":
                         logger.info(f"[AUTO] Lead #{lead_id}: status=deal_closed, stopping")

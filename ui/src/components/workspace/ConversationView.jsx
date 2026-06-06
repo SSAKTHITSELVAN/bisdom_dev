@@ -535,12 +535,11 @@ export default function ConversationView({ leadId }) {
     }
   }, [conv?.messages?.length]) // Track length to avoid unnecessary scrolls
 
-  // Auto-refresh while conversation is being initiated
+  // Auto-refresh while AI is working (initiating or negotiating)
   useEffect(() => {
-    // Poll if conversation doesn't exist yet OR if it has no messages
     const shouldPoll = !conv ||
-                       (lead && (lead.status === 'new' || lead.status === 'agent_initiated') &&
-                       (!conv.messages || conv.messages.length === 0))
+                       (lead && ['new', 'agent_initiated', 'negotiating', 'renegotiating'].includes(lead.status) &&
+                       !lead.ai_paused_for_buyer && !lead.ai_paused_for_supplier)
 
     if (shouldPoll && !loading) {
       const timer = setInterval(() => {
@@ -549,7 +548,7 @@ export default function ConversationView({ leadId }) {
 
       return () => clearInterval(timer)
     }
-  }, [lead?.status, conv?.messages?.length, conv, loading])
+  }, [lead?.status, lead?.ai_paused_for_buyer, lead?.ai_paused_for_supplier, conv, loading])
 
   const handleToggle = async () => {
     const newChatOn = !chatOn

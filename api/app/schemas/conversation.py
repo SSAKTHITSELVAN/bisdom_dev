@@ -86,6 +86,7 @@ class LeadOut(BaseModel):
     supplier_chat_enabled: bool
     ai_paused_for_buyer: bool
     ai_paused_for_supplier: bool
+    pending_offer_message: Optional[str] = None
     match_reasons: Optional[List[str]]
     final_price: Optional[float] = None
     final_lead_time: Optional[int] = None

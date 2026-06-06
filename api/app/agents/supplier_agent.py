@@ -20,10 +20,24 @@ PRICING & SETTINGS:
 
 WHAT YOU DO:
 - Talk to the buyer like a friendly salesperson on WhatsApp
-- Share your pricing, products, lead times from the info above
+- Gather information about their exact needs (specs, quantity, delivery, timeline)
 - Answer buyer's questions about your products
 - Negotiate price within your range (small concessions okay)
 - Keep it short — 2-4 sentences per message, like a real chat
+
+YOUR GOAL:
+- The conversation is for GATHERING INFO from the buyer
+- Once you have enough details (quantity, specs, delivery, timeline confirmed), BUILD a final offer
+- When ready with a final offer, use the <FINAL_OFFER> tag (see below)
+
+FINAL OFFER TAG — use when you have enough info and are ready to propose a deal:
+<FINAL_OFFER price_per_unit="X" quantity="Y" lead_time_days="Z" payment_terms="..." message="Your final offer message to present to the buyer" />
+
+Use <FINAL_OFFER> when:
+- Buyer has confirmed quantity, specs, delivery details
+- You've discussed pricing and reached a reasonable point
+- After 3+ rounds of conversation where key details are clear
+- When buyer seems satisfied with your terms
 
 WHAT YOU NEVER DO:
 - NEVER accept a deal or close a deal — only humans do that
@@ -32,7 +46,7 @@ WHAT YOU NEVER DO:
 - If buyer says "let's go ahead" → say "Great! Let me confirm with my team and get back to you"
 - If anything needs human approval → say "Let me check with my team" and add <NEEDS_SUPPLIER_INPUT reason="..." />
 
-OFFER TAG (use when quoting price):
+OFFER TAG (use when quoting price during discussion, NOT as final offer):
 <OFFER price_per_unit="X" quantity="Y" lead_time_days="Z" payment_terms="..." />
 
 OUTPUT RULES:
@@ -131,8 +145,8 @@ async def supplier_agent_respond(
 
     # Add current buyer message
     round_hint = ""
-    if negotiation_round >= 6:
-        round_hint = "\n[Note: This negotiation has been going several rounds. Try to close or make your final offer soon.]"
+    if negotiation_round >= 4:
+        round_hint = "\n[Note: You've had several rounds of discussion. If you have enough info about the buyer's needs (quantity, specs, delivery, timeline), use the <FINAL_OFFER> tag to submit your formal offer for your team's review. Don't keep chatting indefinitely — build the offer when ready.]"
 
     messages.append({
         "role": "user",
@@ -145,6 +159,9 @@ async def supplier_agent_respond(
         max_tokens=400,
         temperature=0.7,
     )
+
+    # Check for final offer first
+    final_offer = _extract_final_offer(response)
 
     # Parse markers
     needs_input = "<NEEDS_SUPPLIER_INPUT" in response
@@ -161,28 +178,41 @@ async def supplier_agent_respond(
 
     # Clean markers from display message
     clean = response
-    for tag in ["<NEEDS_SUPPLIER_INPUT", "<OFFER "]:
+    for tag in ["<NEEDS_SUPPLIER_INPUT", "<OFFER ", "<FINAL_OFFER"]:
         if tag in clean:
             clean = clean[:clean.index(tag)].strip()
 
     # If model only output the tag with no message, use a natural fallback
     if not clean or clean.startswith("<"):
-        if needs_input:
+        if final_offer:
+            clean = "Let me put together a formal offer for you. One moment."
+        elif needs_input:
             clean = "Let me check with my team on this and get back to you shortly."
         else:
             clean = "Thank you, I'll review this and respond soon."
 
-    # If buyer sounds like they want to proceed, escalate to human supplier
-    # AI must never close deals — only humans confirm
-    if _detect_acceptance(buyer_message):
-        needs_input = True
-        input_reason = input_reason or "Buyer wants to proceed — needs your confirmation"
+    # If buyer sounds like they want to proceed, build final offer for supplier review
+    if _detect_acceptance(buyer_message) and not final_offer:
+        final_offer = extracted_offer or {}
+        # Build a readable offer message for the seller to review
+        offer_parts = []
+        if final_offer.get("price_per_unit"):
+            offer_parts.append(f"Price: ₹{final_offer['price_per_unit']}/unit")
+        if final_offer.get("quantity"):
+            offer_parts.append(f"Quantity: {final_offer['quantity']}")
+        if final_offer.get("lead_time_days"):
+            offer_parts.append(f"Delivery: {final_offer['lead_time_days']} days")
+        if final_offer.get("payment_terms"):
+            offer_parts.append(f"Payment: {final_offer['payment_terms']}")
+        final_offer["message"] = clean + ("\n\n" + " · ".join(offer_parts) if offer_parts else "")
+        clean = "Great! Let me confirm with my team and get back to you with our final offer."
 
     return {
         "message": clean,
         "needs_supplier_input": needs_input,
         "supplier_input_reason": input_reason,
         "extracted_offer": extracted_offer,
+        "final_offer": final_offer,
         "is_deal_closed": False,
     }
 
@@ -246,6 +276,26 @@ CONVERSATION ROUND: {negotiation_round}
             response = response[:response.index(tag)].strip()
 
     return response
+
+
+def _extract_final_offer(text: str) -> dict | None:
+    """Extract <FINAL_OFFER .../> tag — signals supplier AI is ready to present a formal offer."""
+    if "<FINAL_OFFER" not in text:
+        return None
+    try:
+        start = text.index("<FINAL_OFFER")
+        end = text.index("/>", start) + 2
+        offer_str = text[start:end]
+        attrs = re.findall(r'(\w+)="([^"]*)"', offer_str)
+        result = {}
+        for key, val in attrs:
+            try:
+                result[key] = float(val) if "." in val else int(val)
+            except ValueError:
+                result[key] = val
+        return result if result else None
+    except Exception:
+        return None
 
 
 def _extract_offer(text: str) -> dict | None:
