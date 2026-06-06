@@ -17,8 +17,8 @@ class Lead(Base):
     match_reasons = Column(JSON, nullable=True)          # why this supplier was matched
 
     # Lead status lifecycle
-    # new | agent_initiated | negotiating | offer_ready | buyer_review |
-    # accepted | renegotiating | manual_chat | awaiting_supplier_confirm | deal_closed | not_selected | declined
+    # new | agent_initiated | negotiating | pending_supplier_approval | offer_ready |
+    # renegotiating | manual_chat | awaiting_supplier_confirm | deal_closed | not_selected | declined
     status = Column(String(50), default="new")
 
     # Negotiation tracking
@@ -39,6 +39,9 @@ class Lead(Base):
     supplier_chat_enabled = Column(Boolean, default=False)  # supplier enabled manual chat
     ai_paused_for_buyer = Column(Boolean, default=False)   # awaiting buyer input
     ai_paused_for_supplier = Column(Boolean, default=False)  # awaiting supplier input
+
+    # Supplier offer approval — AI builds offer, supplier reviews before it goes to buyer
+    pending_offer_message = Column(Text, nullable=True)    # AI-drafted final offer text for supplier review
 
     # Supplier card flow
     # card_status: pending | generating | draft | qa | submitted | selected | rejected

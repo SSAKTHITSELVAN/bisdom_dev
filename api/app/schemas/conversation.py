@@ -145,6 +145,12 @@ class SupplierEscalationResponse(BaseModel):
     counter_price: Optional[float] = None
 
 
+class SupplierOfferApprovalRequest(BaseModel):
+    lead_id: int
+    action: str  # approve | edit_approve | decline
+    edited_message: Optional[str] = None  # used with edit_approve
+
+
 class SupplierConfirmRequest(BaseModel):
     lead_id: int
     action: str  # confirm | reject

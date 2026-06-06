@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getConvByLead, sendMessage, toggleChat, buyerDecision, supplierEscalation, supplierConfirm, suggestResponse } from '@/api/conversations'
+import { getConvByLead, sendMessage, toggleChat, buyerDecision, supplierEscalation, supplierConfirm, supplierOfferApproval, suggestResponse } from '@/api/conversations'
 import { getLead, getCounterpart } from '@/api/leads'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { useAuthStore } from '@/store/authStore'
@@ -229,8 +229,10 @@ function ActionPanel({ lead, isBuyer, onClose, onRefresh }) {
   )
 }
 
-function ConfirmationBar({ lead, isBuyer, onRefresh }) {
+function ConfirmationBar({ lead, isBuyer, onRefresh, onToggleChat }) {
   const [loading, setLoading] = useState(false)
+  const [editingOffer, setEditingOffer] = useState(false)
+  const [editedMessage, setEditedMessage] = useState('')
 
   if (!lead) return null
 
@@ -258,25 +260,104 @@ function ConfirmationBar({ lead, isBuyer, onRefresh }) {
     fontFamily: 'Inter,system-ui,sans-serif', flexShrink: 0
   })
 
-  // ── BUYER: offer ready — AI is proposing to accept, ask buyer ──
-  if (isBuyer && (lead.status === 'offer_ready' || lead.ai_paused_for_buyer)) {
+  // ── SUPPLIER: pending offer approval — review AI-drafted offer before it goes to buyer ──
+  if (!isBuyer && lead.status === 'pending_supplier_approval') {
+    return (
+      <div style={{ margin: '8px 12px 0', padding: '14px 16px', background: 'linear-gradient(135deg,rgba(139,92,246,0.06),rgba(59,130,246,0.04))', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 14, boxShadow: '0 2px 12px rgba(139,92,246,0.08)' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,rgba(139,92,246,0.2),rgba(59,130,246,0.15))', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Sparkles size={15} color="#a78bfa"/>
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>Review your final offer</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>AI drafted this based on the negotiation. Edit if needed before sending to buyer.</p>
+          </div>
+        </div>
+
+        {/* Offer card */}
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 14px', marginBottom: 12, position: 'relative' }}>
+          {!editingOffer && (
+            <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 9, fontWeight: 600, color: 'rgba(139,92,246,0.6)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>AI Draft</div>
+          )}
+          {editingOffer ? (
+            <textarea
+              value={editedMessage}
+              onChange={e => setEditedMessage(e.target.value)}
+              autoFocus
+              style={{ width: '100%', minHeight: 90, background: 'transparent', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: 13, fontFamily: 'Inter,system-ui,sans-serif', resize: 'vertical', lineHeight: 1.6 }}
+              placeholder="Edit your offer message..."
+            />
+          ) : (
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap', paddingRight: 40 }}>
+              {lead.pending_offer_message || 'Loading offer...'}
+            </p>
+          )}
+        </div>
+
+        {/* Price badge if available */}
+        {lead.current_offer_price && !editingOffer && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 12, padding: '5px 10px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 6 }}>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Price:</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>₹{lead.current_offer_price.toLocaleString()}/unit</span>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {editingOffer ? (
+            <>
+              <button disabled={loading || !editedMessage.trim()} onClick={() => act(supplierOfferApproval, { lead_id: lead.id, action: 'edit_approve', edited_message: editedMessage }, '✅ Offer sent to buyer!')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: 'linear-gradient(135deg,#7c3aed,#8b5cf6)', border: 'none', borderRadius: 8, cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 8px rgba(124,58,237,0.3)' }}>
+                <Send size={13} color="#fff"/>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Send to Buyer</span>
+              </button>
+              <button onClick={() => setEditingOffer(false)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, cursor: 'pointer' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Cancel</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button disabled={loading} onClick={() => act(supplierOfferApproval, { lead_id: lead.id, action: 'approve' }, '✅ Offer sent to buyer!')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: 'linear-gradient(135deg,#059669,#10b981)', border: 'none', borderRadius: 8, cursor: loading ? 'wait' : 'pointer', boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
+                <ThumbsUp size={13} color="#fff"/>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Approve & Send</span>
+              </button>
+              <button disabled={loading} onClick={() => { setEditedMessage(lead.pending_offer_message || ''); setEditingOffer(true) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 8, cursor: loading ? 'wait' : 'pointer' }}>
+                <Sparkles size={13} color="#60a5fa"/>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#60a5fa' }}>Edit Offer</span>
+              </button>
+              <button disabled={loading} onClick={() => act(supplierOfferApproval, { lead_id: lead.id, action: 'decline' }, 'Resuming negotiation...')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: loading ? 'wait' : 'pointer' }}>
+                <X size={13} color="rgba(255,255,255,0.4)"/>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>Negotiate More</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── BUYER: offer ready — supplier approved their offer, buyer decides ──
+  if (isBuyer && lead.status === 'offer_ready') {
     return (
       <div style={barStyle('linear-gradient(135deg,rgba(16,185,129,0.08),rgba(59,130,246,0.08))', 'rgba(16,185,129,0.25)')}>
         <div style={iconBox('rgba(16,185,129,0.15)', 'rgba(16,185,129,0.25)')}>
           <Shield size={16} color="#10b981"/>
         </div>
         <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>
-            {lead.status === 'offer_ready' ? 'AI reached a deal — confirm?' : 'Your decision needed'}
-          </p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>Supplier sent you a final offer</p>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: '2px 0 0' }}>
-            {lead.current_offer_price ? `Current offer: ₹${lead.current_offer_price.toLocaleString()}/unit · ` : ''}
-            Accept, renegotiate, or decline via Actions
+            {lead.current_offer_price ? `₹${lead.current_offer_price.toLocaleString()}/unit · ` : ''}
+            Accept to close the deal, or decline
           </p>
         </div>
-        <button disabled={loading} onClick={() => act(buyerDecision, {lead_id:lead.id, action:'accept'}, 'Sent to supplier!')} style={actionBtn('linear-gradient(135deg,#059669,#10b981)')}>
+        <button disabled={loading} onClick={() => act(buyerDecision, {lead_id:lead.id, action:'accept'}, '🎉 Deal closed!')} style={actionBtn('linear-gradient(135deg,#059669,#10b981)')}>
           <ThumbsUp size={13} color="#fff"/>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Accept</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Accept Deal</span>
         </button>
         <button disabled={loading} onClick={() => act(buyerDecision, {lead_id:lead.id, action:'decline'}, 'Declined')} style={actionBtn('rgba(255,255,255,0.06)', 'rgba(255,255,255,0.12)')}>
           <X size={13} color="rgba(255,255,255,0.5)"/>
@@ -328,16 +409,20 @@ function ConfirmationBar({ lead, isBuyer, onRefresh }) {
   }
 
   // ── SUPPLIER: AI paused for supplier input ──
-  if (!isBuyer && lead.ai_paused_for_supplier && lead.status !== 'awaiting_supplier_confirm') {
+  if (!isBuyer && lead.ai_paused_for_supplier && lead.status !== 'awaiting_supplier_confirm' && lead.status !== 'pending_supplier_approval') {
     return (
       <div style={barStyle('rgba(245,158,11,0.06)', 'rgba(245,158,11,0.2)')}>
         <div style={iconBox('rgba(245,158,11,0.15)', 'rgba(245,158,11,0.25)')}>
-          <AlertTriangle size={16} color="#f59e0b"/>
+          <MessageSquare size={16} color="#f59e0b"/>
         </div>
         <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', margin: 0 }}>AI paused — your response needed</p>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>Use Actions to reply, let AI continue, or decline</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', margin: 0 }}>Buyer asked a question</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>Go live to reply directly</p>
         </div>
+        <button disabled={loading} onClick={onToggleChat} style={actionBtn('linear-gradient(135deg,#7c3aed,#8b5cf6)')}>
+          <MessageSquare size={13} color="#fff"/>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Go Live Chat</span>
+        </button>
       </div>
     )
   }
@@ -348,6 +433,16 @@ function ConfirmationBar({ lead, isBuyer, onRefresh }) {
       <div style={barStyle('rgba(239,68,68,0.06)', 'rgba(239,68,68,0.15)')}>
         <X size={18} color="#ef4444"/>
         <span style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>Supplier declined — check other matched suppliers</span>
+      </div>
+    )
+  }
+
+  // ── SUPPLIER: requirement fulfilled by another supplier ──
+  if (!isBuyer && lead.status === 'not_selected') {
+    return (
+      <div style={barStyle('rgba(107,114,128,0.08)', 'rgba(107,114,128,0.15)')}>
+        <Package size={18} color="#6b7280"/>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>Requirement closed — buyer selected another supplier</span>
       </div>
     )
   }
@@ -572,7 +667,7 @@ export default function ConversationView({ leadId }) {
         </div>
 
         {/* Confirmation Bar — compact */}
-        <ConfirmationBar lead={lead} isBuyer={isBuyer} onRefresh={fetch}/>
+        <ConfirmationBar lead={lead} isBuyer={isBuyer} onRefresh={fetch} onToggleChat={handleToggle}/>
 
         </div>{/* end sticky top section */}
 
@@ -612,27 +707,65 @@ export default function ConversationView({ leadId }) {
 
           {/* End-of-messages paused indicator */}
           {conv?.messages?.length > 0 && (() => {
-            if (isBuyer && (lead?.ai_paused_for_buyer || lead?.status === 'offer_ready'))
+            if (!isBuyer && lead?.status === 'pending_supplier_approval')
               return (
                 <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
-                  <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:14 }}>
-                    <AlertTriangle size={20} color="#f59e0b" style={{ margin:'0 auto 6px' }}/>
-                    <p style={{ fontSize:12, fontWeight:600, color:'#f59e0b', marginBottom:3 }}>Your Decision Needed</p>
-                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use Actions to accept/decline, or toggle Live Chat to message the supplier directly.</p>
-                    <button onClick={() => setShowActions(true)} style={{ marginTop:8, fontSize:11, fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.15)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:6, padding:'6px 14px', cursor:'pointer' }}>Open Actions</button>
+                  <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:14 }}>
+                    <Sparkles size={20} color="#a78bfa" style={{ margin:'0 auto 6px' }}/>
+                    <p style={{ fontSize:12, fontWeight:600, color:'#a78bfa', marginBottom:3 }}>AI prepared your final offer</p>
+                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Review it above — approve, edit, or decline to keep negotiating.</p>
                   </div>
                 </div>
               )
-            if (!isBuyer && (lead?.ai_paused_for_supplier || lead?.status === 'awaiting_supplier_confirm'))
+            if (isBuyer && lead?.status === 'pending_supplier_approval')
+              return (
+                <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
+                  <div style={{ maxWidth:'85%', textAlign:'center', padding:'12px 18px', background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.15)', borderRadius:14 }}>
+                    <Bot size={18} color="#8b5cf6" style={{ margin:'0 auto 4px' }}/>
+                    <p style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>Supplier is reviewing their offer…</p>
+                  </div>
+                </div>
+              )
+            if (isBuyer && lead?.status === 'offer_ready')
+              return (
+                <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
+                  <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.2)', borderRadius:14 }}>
+                    <Shield size={20} color="#10b981" style={{ margin:'0 auto 6px' }}/>
+                    <p style={{ fontSize:12, fontWeight:600, color:'#10b981', marginBottom:3 }}>Final offer received</p>
+                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>The supplier sent you a final offer. Accept above to close the deal.</p>
+                  </div>
+                </div>
+              )
+            if (isBuyer && lead?.ai_paused_for_buyer && lead?.status !== 'offer_ready')
+              return (
+                <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
+                  <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(59,130,246,0.08)', border:'1px solid rgba(59,130,246,0.2)', borderRadius:14 }}>
+                    <MessageSquare size={20} color="#3b82f6" style={{ margin:'0 auto 6px' }}/>
+                    <p style={{ fontSize:12, fontWeight:600, color:'#3b82f6', marginBottom:3 }}>Supplier asked a question</p>
+                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Go live to reply directly to the supplier.</p>
+                    <button onClick={handleToggle} style={{ marginTop:8, fontSize:11, fontWeight:700, color:'#fff', background:'linear-gradient(135deg,#1d4ed8,#3b82f6)', border:'none', borderRadius:6, padding:'6px 14px', cursor:'pointer' }}>Go Live Chat</button>
+                  </div>
+                </div>
+              )
+            if (!isBuyer && lead?.status === 'awaiting_supplier_confirm')
               return (
                 <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
                   <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(167,139,250,0.08)', border:'1px solid rgba(167,139,250,0.2)', borderRadius:14 }}>
                     <AlertTriangle size={20} color="#a78bfa" style={{ margin:'0 auto 6px' }}/>
-                    <p style={{ fontSize:12, fontWeight:600, color:'#a78bfa', marginBottom:3 }}>
-                      {lead?.status === 'awaiting_supplier_confirm' ? 'Buyer accepted — confirm or reject' : 'Your response needed'}
-                    </p>
-                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use Actions above, or toggle Live Chat to reply directly.</p>
+                    <p style={{ fontSize:12, fontWeight:600, color:'#a78bfa', marginBottom:3 }}>Buyer accepted — confirm or reject</p>
+                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use Actions above to confirm or reject the deal.</p>
                     <button onClick={() => setShowActions(true)} style={{ marginTop:8, fontSize:11, fontWeight:700, color:'#a78bfa', background:'rgba(167,139,250,0.15)', border:'1px solid rgba(167,139,250,0.3)', borderRadius:6, padding:'6px 14px', cursor:'pointer' }}>Open Actions</button>
+                  </div>
+                </div>
+              )
+            if (!isBuyer && lead?.ai_paused_for_supplier && lead?.status !== 'awaiting_supplier_confirm')
+              return (
+                <div style={{ display:'flex', justifyContent:'center', margin:'16px 0' }}>
+                  <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(167,139,250,0.08)', border:'1px solid rgba(167,139,250,0.2)', borderRadius:14 }}>
+                    <MessageSquare size={20} color="#a78bfa" style={{ margin:'0 auto 6px' }}/>
+                    <p style={{ fontSize:12, fontWeight:600, color:'#a78bfa', marginBottom:3 }}>Your response needed</p>
+                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>The buyer asked a question — go live to reply directly.</p>
+                    <button onClick={handleToggle} style={{ marginTop:8, fontSize:11, fontWeight:700, color:'#fff', background:'linear-gradient(135deg,#7c3aed,#8b5cf6)', border:'none', borderRadius:6, padding:'6px 14px', cursor:'pointer' }}>Go Live Chat</button>
                   </div>
                 </div>
               )

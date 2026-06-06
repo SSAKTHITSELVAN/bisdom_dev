@@ -5,6 +5,7 @@ export const sendMessage        = data   => client.post('/conversations/send', d
 export const toggleChat         = data   => client.post('/conversations/toggle-chat', data)
 export const buyerDecision      = data   => client.post('/conversations/buyer-decision', data)
 export const supplierConfirm    = data   => client.post('/conversations/supplier-confirm', data)
+export const supplierOfferApproval = data => client.post('/conversations/supplier-offer-approval', data)
 export const supplierEscalation = data   => client.post('/conversations/supplier-escalation', data)
 export const suggestResponse    = data   => client.post('/conversations/suggest-response', data)
 export const getPendingActions  = ()     => client.get('/conversations/pending-actions')

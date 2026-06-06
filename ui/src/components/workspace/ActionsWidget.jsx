@@ -4,11 +4,12 @@ import { useWorkspaceStore } from '@/store/workspaceStore'
 import { AlertTriangle, ShieldCheck, ChevronRight, Zap, ThumbsDown, Trash2, CheckCircle } from 'lucide-react'
 
 const ACTION_META = {
-  buyer_decision:    { label: 'Your Decision Needed',    color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)',  icon: <AlertTriangle size={13} color="#f59e0b"/> },
-  review_offer:      { label: 'Review Final Offer',      color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)', icon: <Zap size={13} color="#a78bfa"/> },
-  supplier_confirm:  { label: 'Confirm Deal',            color: '#10b981', bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.2)',  icon: <ShieldCheck size={13} color="#10b981"/> },
-  supplier_respond:  { label: 'AI Needs Your Input',     color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)',  icon: <AlertTriangle size={13} color="#f59e0b"/> },
-  supplier_declined: { label: 'Supplier Declined',       color: '#ef4444', bg: 'rgba(239,68,68,0.06)',   border: 'rgba(239,68,68,0.15)',  icon: <ThumbsDown size={13} color="#ef4444"/> },
+  buyer_decision:        { label: 'Your Decision Needed',    color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)',  icon: <AlertTriangle size={13} color="#f59e0b"/> },
+  review_offer:          { label: 'Review Final Offer',      color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)', icon: <Zap size={13} color="#a78bfa"/> },
+  supplier_approve_offer:{ label: 'Review AI Offer',         color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)', icon: <Zap size={13} color="#a78bfa"/> },
+  supplier_confirm:      { label: 'Confirm Deal',            color: '#10b981', bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.2)',  icon: <ShieldCheck size={13} color="#10b981"/> },
+  supplier_respond:      { label: 'AI Needs Your Input',     color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)',  icon: <AlertTriangle size={13} color="#f59e0b"/> },
+  supplier_declined:     { label: 'Supplier Declined',       color: '#ef4444', bg: 'rgba(239,68,68,0.06)',   border: 'rgba(239,68,68,0.15)',  icon: <ThumbsDown size={13} color="#ef4444"/> },
 }
 
 export default function ActionsWidget({ refreshKey }) {
@@ -31,7 +32,7 @@ export default function ActionsWidget({ refreshKey }) {
 
   const navigate = (item) => {
     setVisited(prev => prev.includes(item.lead_id) ? prev : [...prev, item.lead_id])
-    const isSupplierAction = ['supplier_confirm', 'supplier_respond'].includes(item.action)
+    const isSupplierAction = ['supplier_confirm', 'supplier_respond', 'supplier_approve_offer'].includes(item.action)
     if (isSupplierAction) {
       goLead(item.lead_id)
     } else {
