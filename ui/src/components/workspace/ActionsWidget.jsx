@@ -1,26 +1,189 @@
 import { useState, useEffect } from 'react'
 import { getPendingActions } from '@/api/conversations'
 import { useWorkspaceStore } from '@/store/workspaceStore'
-import { AlertTriangle, ShieldCheck, ChevronRight, Zap, ThumbsDown, Trash2, CheckCircle } from 'lucide-react'
+import { ChevronRight, Zap, ThumbsDown, CheckCircle, X, Clock, Send, Shield, MessageSquare, AlertTriangle } from 'lucide-react'
 
-const ACTION_META = {
-  buyer_decision:        { label: 'Your Decision Needed',    color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)',  icon: <AlertTriangle size={13} color="#f59e0b"/> },
-  review_offer:          { label: 'Review Final Offer',      color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)', icon: <Zap size={13} color="#a78bfa"/> },
-  supplier_approve_offer:{ label: 'Review AI Offer',         color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)', icon: <Zap size={13} color="#a78bfa"/> },
-  supplier_confirm:      { label: 'Confirm Deal',            color: '#10b981', bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.2)',  icon: <ShieldCheck size={13} color="#10b981"/> },
-  supplier_respond:      { label: 'AI Needs Your Input',     color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)',  icon: <AlertTriangle size={13} color="#f59e0b"/> },
-  supplier_declined:     { label: 'Supplier Declined',       color: '#ef4444', bg: 'rgba(239,68,68,0.06)',   border: 'rgba(239,68,68,0.15)',  icon: <ThumbsDown size={13} color="#ef4444"/> },
+const STORAGE_KEY = 'bisdom_dismissed_actions'
+
+function getDismissed() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw)
+  } catch { return {} }
+}
+
+function setDismissed(dismissed) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(dismissed))
+}
+
+const CATEGORIES = {
+  buyer: {
+    final_decision: {
+      title: 'Final Decision',
+      color: '#f59e0b',
+      bg: 'rgba(245,158,11,0.06)',
+      border: 'rgba(245,158,11,0.18)',
+      icon: <Shield size={14} color="#f59e0b"/>,
+      actions: ['buyer_decision'],
+    },
+    reply_needed: {
+      title: 'Reply Needed',
+      color: '#3b82f6',
+      bg: 'rgba(59,130,246,0.06)',
+      border: 'rgba(59,130,246,0.18)',
+      icon: <MessageSquare size={14} color="#3b82f6"/>,
+      actions: ['supplier_respond'],
+    },
+    declined: {
+      title: 'Declined',
+      color: '#ef4444',
+      bg: 'rgba(239,68,68,0.04)',
+      border: 'rgba(239,68,68,0.12)',
+      icon: <ThumbsDown size={14} color="#ef4444"/>,
+      actions: ['supplier_declined'],
+    },
+  },
+  supplier: {
+    submit_offer: {
+      title: 'Submit Final Offer',
+      color: '#a78bfa',
+      bg: 'rgba(167,139,250,0.06)',
+      border: 'rgba(167,139,250,0.18)',
+      icon: <Zap size={14} color="#a78bfa"/>,
+      actions: ['supplier_approve_offer'],
+    },
+    buyer_waiting: {
+      title: 'Buyer Approval Waiting',
+      color: '#f59e0b',
+      bg: 'rgba(245,158,11,0.06)',
+      border: 'rgba(245,158,11,0.18)',
+      icon: <Clock size={14} color="#f59e0b"/>,
+      actions: ['supplier_confirm'],
+    },
+    respond: {
+      title: 'Response Needed',
+      color: '#3b82f6',
+      bg: 'rgba(59,130,246,0.06)',
+      border: 'rgba(59,130,246,0.18)',
+      icon: <MessageSquare size={14} color="#3b82f6"/>,
+      actions: ['supplier_respond'],
+    },
+  },
+}
+
+function ActionItem({ item, meta, onNavigate, onDismiss }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '9px 10px', borderRadius: 8,
+      cursor: 'pointer', transition: 'background 0.15s',
+      background: 'rgba(255,255,255,0.02)',
+    }}
+      onClick={() => onNavigate(item)}
+      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+        }}>
+          {item.product || `Lead #${item.lead_id}`}
+        </div>
+        {item.current_offer_price && (
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+            ₹{item.current_offer_price.toLocaleString()}/unit
+          </div>
+        )}
+      </div>
+      <button
+        onClick={e => { e.stopPropagation(); onDismiss(item) }}
+        style={{
+          width: 20, height: 20, borderRadius: 5, border: 'none',
+          background: 'rgba(255,255,255,0.06)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}
+        title="Dismiss"
+      >
+        <X size={10} color="rgba(255,255,255,0.3)"/>
+      </button>
+      <ChevronRight size={11} color="rgba(255,255,255,0.2)" style={{ flexShrink: 0 }}/>
+    </div>
+  )
+}
+
+function CategoryGroup({ category, items, onNavigate, onDismiss }) {
+  if (items.length === 0) return null
+
+  return (
+    <div style={{
+      margin: '0 8px 10px',
+      background: category.bg,
+      border: `1px solid ${category.border}`,
+      borderRadius: 10, overflow: 'hidden',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 12px 6px',
+      }}>
+        <div style={{
+          width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+          background: `${category.color}18`, border: `1px solid ${category.color}25`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {category.icon}
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: category.color, letterSpacing: '0.02em' }}>
+          {category.title}
+        </span>
+        <span style={{
+          fontSize: 9, fontWeight: 700, color: category.color,
+          background: `${category.color}15`, borderRadius: 8, padding: '2px 6px',
+          marginLeft: 'auto',
+        }}>
+          {items.length}
+        </span>
+      </div>
+      <div style={{ padding: '2px 6px 6px' }}>
+        {items.map(item => (
+          <ActionItem
+            key={item.lead_id}
+            item={item}
+            onNavigate={onNavigate}
+            onDismiss={onDismiss}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function ActionsWidget({ refreshKey }) {
   const [pending, setPending] = useState([])
-  const [visited, setVisited] = useState([])
+  const [dismissed, setDismissedState] = useState(getDismissed)
   const { goChat, goLead } = useWorkspaceStore()
 
   const load = async () => {
     try {
       const res = await getPendingActions()
-      setPending(res.data.pending || [])
+      const items = res.data.pending || []
+      setPending(items)
+
+      // Auto-clean dismissed entries that no longer exist in pending
+      const currentIds = new Set(items.map(i => `${i.lead_id}_${i.action}`))
+      const updated = { ...getDismissed() }
+      let changed = false
+      for (const key of Object.keys(updated)) {
+        if (!currentIds.has(key)) {
+          delete updated[key]
+          changed = true
+        }
+      }
+      if (changed) {
+        setDismissed(updated)
+        setDismissedState(updated)
+      }
     } catch {}
   }
 
@@ -31,7 +194,6 @@ export default function ActionsWidget({ refreshKey }) {
   }, [])
 
   const navigate = (item) => {
-    setVisited(prev => prev.includes(item.lead_id) ? prev : [...prev, item.lead_id])
     const isSupplierAction = ['supplier_confirm', 'supplier_respond', 'supplier_approve_offer'].includes(item.action)
     if (isSupplierAction) {
       goLead(item.lead_id)
@@ -40,117 +202,118 @@ export default function ActionsWidget({ refreshKey }) {
     }
   }
 
-  const clearAll = () => {
-    setVisited(pending.map(p => p.lead_id))
+  const dismiss = (item) => {
+    const key = `${item.lead_id}_${item.action}`
+    const updated = { ...dismissed, [key]: Date.now() }
+    setDismissed(updated)
+    setDismissedState(updated)
   }
 
-  const incomplete = pending.filter(item => !visited.includes(item.lead_id))
-  const done = pending.filter(item => visited.includes(item.lead_id))
-  const activeCount = incomplete.length
+  const clearAll = () => {
+    const updated = { ...dismissed }
+    active.forEach(item => {
+      updated[`${item.lead_id}_${item.action}`] = Date.now()
+    })
+    setDismissed(updated)
+    setDismissedState(updated)
+  }
+
+  const active = pending.filter(item => !dismissed[`${item.lead_id}_${item.action}`])
+  const activeCount = active.length
+
+  // Determine if user is buyer or supplier based on action types
+  const hasSupplierActions = active.some(i =>
+    ['supplier_confirm', 'supplier_respond', 'supplier_approve_offer'].includes(i.action)
+  )
+  const hasBuyerActions = active.some(i =>
+    ['buyer_decision', 'supplier_declined'].includes(i.action)
+  )
+
+  // Group items into categories
+  const categorized = []
+
+  if (hasBuyerActions) {
+    for (const [key, cat] of Object.entries(CATEGORIES.buyer)) {
+      const items = active.filter(i => cat.actions.includes(i.action))
+      if (items.length > 0) categorized.push({ key: `buyer_${key}`, category: cat, items })
+    }
+  }
+
+  if (hasSupplierActions) {
+    for (const [key, cat] of Object.entries(CATEGORIES.supplier)) {
+      const items = active.filter(i => cat.actions.includes(i.action))
+      if (items.length > 0) categorized.push({ key: `supplier_${key}`, category: cat, items })
+    }
+  }
+
+  // Items that don't fit any category
+  const categorizedIds = new Set(categorized.flatMap(c => c.items.map(i => i.lead_id)))
+  const uncategorized = active.filter(i => !categorizedIds.has(i.lead_id))
+  if (uncategorized.length > 0) {
+    categorized.push({
+      key: 'other',
+      category: {
+        title: 'Other',
+        color: '#64748b',
+        bg: 'rgba(100,116,139,0.06)',
+        border: 'rgba(100,116,139,0.15)',
+        icon: <AlertTriangle size={14} color="#64748b"/>,
+      },
+      items: uncategorized,
+    })
+  }
 
   return (
     <div className="actions-panel-wrapper">
-      {/* Panel header */}
+      {/* Header */}
       <div style={{
-        padding:'16px 16px 12px', borderBottom:'1px solid rgba(255,255,255,0.07)',
-        display:'flex', alignItems:'center', justifyContent:'space-between',
-        flexShrink:0,
+        padding: '14px 14px 10px',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexShrink: 0,
       }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <AlertTriangle size={14} color="#f59e0b"/>
-          <span style={{ fontSize:13, fontWeight:700, color:'#fff' }}>Actions</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertTriangle size={13} color={activeCount > 0 ? '#f59e0b' : 'rgba(255,255,255,0.3)'}/>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Actions</span>
           {activeCount > 0 && (
-            <span style={{ background:'rgba(245,158,11,0.15)', color:'#f59e0b', fontSize:9, fontWeight:800, borderRadius:10, padding:'2px 7px' }}>
+            <span style={{
+              background: 'rgba(245,158,11,0.15)', color: '#f59e0b',
+              fontSize: 9, fontWeight: 800, borderRadius: 10, padding: '2px 7px',
+            }}>
               {activeCount}
             </span>
           )}
         </div>
-      </div>
-
-      {/* Action items — incomplete first, done at bottom */}
-      <div style={{ flex:1, overflowY:'auto', padding:'4px 0' }}>
-        {pending.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'32px 16px', color:'rgba(255,255,255,0.25)', fontSize:11 }}>
-            No pending actions
-          </div>
-        ) : (
-          <>
-            {/* Incomplete — active tasks */}
-            {incomplete.map((item, i) => {
-              const meta = ACTION_META[item.action] || ACTION_META.buyer_decision
-              return (
-                <div key={`active-${item.lead_id}`} onClick={() => navigate(item)} style={{
-                  padding:'10px 12px', margin:'0 6px 4px',
-                  borderRadius:10, cursor:'pointer',
-                  display:'flex', alignItems:'center', gap:10,
-                  background: meta.bg,
-                  border:`1px solid ${meta.border}`,
-                  transition:'all 0.2s'
-                }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                  onMouseLeave={e => e.currentTarget.style.background = meta.bg}
-                >
-                  <div style={{ width:30, height:30, borderRadius:8, flexShrink:0, background: meta.border, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    {meta.icon}
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:11, fontWeight:700, color: meta.color }}>{meta.label}</div>
-                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.5)', marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {item.product || `Lead #${item.lead_id}`}
-                      {item.current_offer_price ? ` · ₹${item.current_offer_price.toLocaleString()}` : ''}
-                    </div>
-                  </div>
-                  <ChevronRight size={12} color="rgba(255,255,255,0.25)"/>
-                </div>
-              )
-            })}
-
-            {/* Done — visited tasks (dull, at bottom) */}
-            {done.length > 0 && incomplete.length > 0 && (
-              <div style={{ margin:'8px 12px 4px', borderTop:'1px solid rgba(255,255,255,0.05)' }}/>
-            )}
-            {done.map((item) => {
-              const meta = ACTION_META[item.action] || ACTION_META.buyer_decision
-              return (
-                <div key={`done-${item.lead_id}`} onClick={() => navigate(item)} style={{
-                  padding:'8px 12px', margin:'0 6px 3px',
-                  borderRadius:8, cursor:'pointer',
-                  display:'flex', alignItems:'center', gap:10,
-                  background:'rgba(255,255,255,0.02)',
-                  border:'1px solid rgba(255,255,255,0.04)',
-                  opacity: 0.5,
-                  transition:'all 0.2s'
-                }}>
-                  <div style={{ width:26, height:26, borderRadius:7, flexShrink:0, background:'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <CheckCircle size={12} color="rgba(255,255,255,0.3)"/>
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:10, fontWeight:600, color:'rgba(255,255,255,0.4)', textDecoration:'line-through' }}>{meta.label}</div>
-                    <div style={{ fontSize:9, color:'rgba(255,255,255,0.3)', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {item.product || `Lead #${item.lead_id}`}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </>
+        {activeCount > 0 && (
+          <button onClick={clearAll} style={{
+            fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.35)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '4px 8px', borderRadius: 5,
+          }}>
+            Clear all
+          </button>
         )}
       </div>
 
-      {/* Clear All */}
-      {pending.length > 0 && activeCount > 0 && (
-        <div style={{ padding:'10px 12px', borderTop:'1px solid rgba(255,255,255,0.07)', flexShrink:0 }}>
-          <button onClick={clearAll} style={{
-            width:'100%', padding:'8px', fontSize:11, fontWeight:600,
-            color:'rgba(255,255,255,0.4)', background:'rgba(255,255,255,0.04)',
-            border:'1px solid rgba(255,255,255,0.08)', borderRadius:8,
-            cursor:'pointer', fontFamily:'Montserrat,sans-serif',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-          }}>
-            <Trash2 size={11}/> Clear All
-          </button>
-        </div>
-      )}
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+        {activeCount === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+            <CheckCircle size={24} color="rgba(255,255,255,0.08)" style={{ margin: '0 auto 10px' }}/>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', fontWeight: 500 }}>All caught up</div>
+          </div>
+        ) : (
+          categorized.map(({ key, category, items }) => (
+            <CategoryGroup
+              key={key}
+              category={category}
+              items={items}
+              onNavigate={navigate}
+              onDismiss={dismiss}
+            />
+          ))
+        )}
+      </div>
     </div>
   )
 }

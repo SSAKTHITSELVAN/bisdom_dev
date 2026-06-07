@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from app.db.base import get_db
 from app.core.dependencies import get_current_user
+from app.core.limiter import limiter
 from app.models.user import User
 from app.models.lead import Lead
 from app.models.conversation import Conversation, Message
@@ -177,8 +178,10 @@ async def get_conversation_by_lead(
 
 
 @router.post("/send", response_model=SendMessageResponse)
+@limiter.limit("20/minute")
 async def send_message(
     request: SendMessageRequest,
+    req: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -337,8 +340,10 @@ async def toggle_human_chat(
 
 
 @router.post("/buyer-decision")
+@limiter.limit("10/minute")
 async def handle_buyer_decision(
     request: BuyerDecisionRequest,
+    req: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -392,6 +397,42 @@ async def handle_buyer_decision(
 
         await db.commit()
         return {"success": True, "status": "deal_closed", "message": "Deal closed!"}
+
+    elif action == "counter":
+        if not request.counter_price:
+            raise HTTPException(status_code=400, detail="Provide counter_price")
+        # Buyer counters — send back to supplier for review
+        counter_msg = request.counter_message or f"Can you do ₹{request.counter_price}/unit?"
+
+        # Post buyer's counter as a visible message
+        conv_result = await db.execute(select(Conversation).where(Conversation.lead_id == lead.id))
+        conv = conv_result.scalar_one_or_none()
+        if conv:
+            msg = Message(
+                conversation_id=conv.id,
+                role="human_buyer",
+                message_type="text",
+                content=counter_msg,
+            )
+            db.add(msg)
+            # Update AI context
+            updated_context = (conv.ai_context or []) + [{"role": "human_buyer", "content": counter_msg}]
+            conv.ai_context = updated_context
+
+        # Move to pending_supplier_approval with buyer's counter as the new offer
+        lead.status = "pending_supplier_approval"
+        lead.ai_paused_for_buyer = False
+        lead.ai_paused_for_supplier = True
+        lead.pending_offer_message = f"Buyer countered at ₹{request.counter_price}/unit. {counter_msg}"
+        lead.current_offer_price = request.counter_price
+
+        await _post_system_message(
+            lead.id,
+            f"Buyer countered at ₹{request.counter_price}/unit — waiting for supplier's response.",
+            db,
+        )
+        await db.commit()
+        return {"success": True, "status": "pending_supplier_approval", "message": "Counter sent to supplier"}
 
     elif action == "renegotiate":
         if not request.renegotiate_target:
@@ -459,8 +500,10 @@ async def handle_supplier_escalation(
 
 
 @router.post("/supplier-confirm")
+@limiter.limit("10/minute")
 async def handle_supplier_confirm(
     request: SupplierConfirmRequest,
+    req: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -530,8 +573,10 @@ async def handle_supplier_confirm(
 
 
 @router.post("/supplier-offer-approval")
+@limiter.limit("10/minute")
 async def handle_supplier_offer_approval(
     request: SupplierOfferApprovalRequest,
+    req: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -594,8 +639,10 @@ async def handle_supplier_offer_approval(
 
 
 @router.post("/suggest-response", response_model=SuggestResponseOut)
+@limiter.limit("5/minute")
 async def suggest_response(
     request: SuggestResponseRequest,
+    req: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -721,22 +768,19 @@ async def _trigger_supplier_ai_response(
         seller_settings_md=supplier_cfg.seller_settings_md or "",
     )
 
+    # Final offer built by supplier AI → pause for human seller to approve/edit/decline
+    final_offer = response.get("final_offer")
+
     msg = Message(
         conversation_id=conversation.id,
         role="ai_supplier",
         message_type="text",
         content=response["message"],
-        structured_data={"offer": response.get("extracted_offer")},
+        is_visible_to_buyer=not bool(final_offer),
+        is_visible_to_supplier=True,
     )
     db.add(msg)
 
-    # Update lead
-    if response.get("extracted_offer"):
-        lead.current_offer_price = response["extracted_offer"].get("price_per_unit")
-        lead.current_lead_time = response["extracted_offer"].get("lead_time_days")
-
-    # Final offer built by supplier AI → pause for human seller to approve/edit/decline
-    final_offer = response.get("final_offer")
     if final_offer:
         offer_message = final_offer.get("message") or response["message"]
         lead.status = "pending_supplier_approval"

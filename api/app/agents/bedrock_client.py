@@ -74,26 +74,41 @@ async def call_qwen3(
         "Authorization": f"Bearer {BEARER_TOKEN}",
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                BEDROCK_URL,
-                headers=headers,
-                content=body_bytes,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return (
-                data.get("output", {})
-                    .get("message", {})
-                    .get("content", [{}])[0]
-                    .get("text", "")
-            )
+    import asyncio
 
-    except httpx.HTTPStatusError as e:
-        raise Exception(f"Bedrock API error {e.response.status_code}: {e.response.text}")
-    except Exception as e:
-        raise Exception(f"Bedrock call failed: {str(e)}")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    BEDROCK_URL,
+                    headers=headers,
+                    content=body_bytes,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return (
+                    data.get("output", {})
+                        .get("message", {})
+                        .get("content", [{}])[0]
+                        .get("text", "")
+                )
+
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            if status == 429 or status >= 500:
+                if attempt < max_retries - 1:
+                    wait = (attempt + 1) * 2
+                    await asyncio.sleep(wait)
+                    continue
+            raise Exception(f"Bedrock API error {status}: {e.response.text}")
+        except (httpx.ConnectTimeout, httpx.ReadTimeout) as e:
+            if attempt < max_retries - 1:
+                await asyncio.sleep((attempt + 1) * 2)
+                continue
+            raise Exception(f"Bedrock timeout after {max_retries} attempts: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Bedrock call failed: {str(e)}")
 
 
 async def call_qwen3_with_url(url: str, instruction: str) -> str:

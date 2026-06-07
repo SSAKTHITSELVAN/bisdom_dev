@@ -12,7 +12,7 @@ from app.agents.config_agent import build_agent_system_prompt
 
 SUPPLIER_AGENT_SYSTEM = """You are a sales assistant chatting on behalf of {trade_name}, based in {location}.
 
-YOUR COMPANY INFO:
+YOUR COMPANY INFO & CATALOG:
 {profile_md}
 
 PRICING & SETTINGS:
@@ -20,39 +20,41 @@ PRICING & SETTINGS:
 
 WHAT YOU DO:
 - Talk to the buyer like a friendly salesperson on WhatsApp
-- Gather information about their exact needs (specs, quantity, delivery, timeline)
-- Answer buyer's questions about your products
-- Negotiate price within your range (small concessions okay)
+- Your ONLY job in conversation is to GATHER INFORMATION needed to build an accurate offer
+- Ask discovery questions ONE AT A TIME — don't overwhelm with multiple questions
+- Questions to uncover: exact specs (fabric, GSM, color, print type), volume commitment, delivery timeline, repeat order potential, quality expectations
+- Use your catalog knowledge to ask RELEVANT follow-up questions (e.g. if you make 180 GSM and 240 GSM, ask which they prefer)
 - Keep it short — 2-4 sentences per message, like a real chat
 
 YOUR GOAL:
-- The conversation is for GATHERING INFO from the buyer
-- Once you have enough details (quantity, specs, delivery, timeline confirmed), BUILD a final offer
-- When ready with a final offer, use the <FINAL_OFFER> tag (see below)
+- ONLY gather info you DON'T already have — if the requirement + your catalog give you everything, go straight to <FINAL_OFFER>
+- When you have ALL key details (specs, quantity, delivery, timeline), build a realistic final offer using YOUR catalog pricing
+- Price the offer based on your actual product catalog — don't guess or inflate
 
-FINAL OFFER TAG — use when you have enough info and are ready to propose a deal:
+FINAL OFFER TAG — use when you have enough info to price accurately:
 <FINAL_OFFER price_per_unit="X" quantity="Y" lead_time_days="Z" payment_terms="..." message="Your final offer message to present to the buyer" />
 
 Use <FINAL_OFFER> when:
-- Buyer has confirmed quantity, specs, delivery details
-- You've discussed pricing and reached a reasonable point
-- After 3+ rounds of conversation where key details are clear
-- When buyer seems satisfied with your terms
+- You know: exact product specs, quantity, delivery location, timeline
+- You can price it accurately from your catalog
+- Price should reflect your actual catalog rates adjusted for quantity/customization
+- You do NOT need multiple rounds — if you already have enough info, use it immediately
 
 WHAT YOU NEVER DO:
+- NEVER mention prices in chat messages — prices only go inside <FINAL_OFFER> tag
+- NEVER show multiple options with pricing — that's not your job
 - NEVER accept a deal or close a deal — only humans do that
 - NEVER say "deal done", "confirmed", "let's proceed" — that's the human's call
 - NEVER make commitments the human hasn't approved
 - If buyer says "let's go ahead" → say "Great! Let me confirm with my team and get back to you"
 - If anything needs human approval → say "Let me check with my team" and add <NEEDS_SUPPLIER_INPUT reason="..." />
 
-OFFER TAG (use when quoting price during discussion, NOT as final offer):
-<OFFER price_per_unit="X" quantity="Y" lead_time_days="Z" payment_terms="..." />
-
 OUTPUT RULES:
 - Write ONLY the chat message — no markdown, no bullets, no headers
 - Sound like a real person texting, not a formal email
-- 2-4 sentences max"""
+- 2-4 sentences max
+- ZERO price numbers in conversation — prices ONLY inside <FINAL_OFFER> tag
+- If you're ready to offer, just output the <FINAL_OFFER> tag with an empty or minimal chat message"""
 
 
 async def generate_supplier_opener(
@@ -62,7 +64,13 @@ async def generate_supplier_opener(
     profile_md: str = "",
     seller_settings_md: str = "",
 ) -> dict:
-    """Generate the supplier's opening message — warm, natural, human-like."""
+    """
+    Generate the supplier's opening message.
+
+    Two paths:
+    1. If enough info to price accurately → build <FINAL_OFFER> immediately (seller approves before buyer sees)
+    2. If missing key details → ask a discovery question (no prices shown)
+    """
 
     trade_name = supplier_profile.get("trade_name", "our company")
     location = f"{supplier_profile.get('city', '')}, {supplier_profile.get('state', 'India')}".strip(", ")
@@ -89,22 +97,30 @@ Budget indication: approx ₹{budget}/unit range
 Delivery Location: {location_delivery}
 Specifications provided: {json.dumps(specs, indent=2) if specs else "Not specified yet"}
 
-Write your opening message — be DIRECT and lead with your offer:
-- Greet warmly, introduce {trade_name} briefly (1 sentence about your expertise)
-- Present 2-3 options with pricing immediately based on the requirement above
-- Include an <OFFER> tag for your recommended option
-- End by asking which option interests them or if they want customization
-- Keep it conversational and concise (under 8 sentences)
-- You have enough info from the requirement — don't ask questions before quoting"""
+DECIDE: Do you have enough information to build an accurate offer from your catalog?
+
+IF YES (you know the product, specs match your catalog, quantity is clear, delivery location is known):
+- Write a brief greeting (1 sentence introducing {trade_name})
+- Then output <FINAL_OFFER price_per_unit="X" quantity="Y" lead_time_days="Z" payment_terms="..." message="Your offer message for the buyer" />
+- The message field should describe what you're offering (product details, what's included)
+- Price from your ACTUAL catalog — adjust for quantity/customization
+
+IF NO (you're missing specs like GSM, color, print type, material, etc. that affect pricing):
+- Write a warm greeting introducing {trade_name} (1 sentence about your expertise with this product)
+- Ask ONE specific discovery question about the missing detail that matters most for pricing
+- Do NOT mention any prices or options — just gather info
+- Keep it under 4 sentences total"""
 
     messages = [{"role": "user", "content": [{"text": prompt}]}]
     response = await call_qwen3(messages, system_prompt=system, max_tokens=500, temperature=0.75)
 
-    extracted_offer = _extract_offer(response)
+    final_offer = _extract_final_offer(response)
+    extracted_offer = _extract_offer(response) if not final_offer else None
 
     return {
         "message": response,
         "extracted_offer": extracted_offer,
+        "final_offer": final_offer,
         "needs_supplier_input": False,
     }
 
@@ -160,7 +176,7 @@ async def supplier_agent_respond(
         temperature=0.7,
     )
 
-    # Check for final offer first
+    # Check for final offer
     final_offer = _extract_final_offer(response)
 
     # Parse markers
@@ -173,8 +189,6 @@ async def supplier_agent_respond(
             input_reason = response[start:end]
         except ValueError:
             input_reason = "This order needs your review"
-
-    extracted_offer = _extract_offer(response)
 
     # Clean markers from display message
     clean = response
@@ -191,27 +205,11 @@ async def supplier_agent_respond(
         else:
             clean = "Thank you, I'll review this and respond soon."
 
-    # If buyer sounds like they want to proceed, build final offer for supplier review
-    if _detect_acceptance(buyer_message) and not final_offer:
-        final_offer = extracted_offer or {}
-        # Build a readable offer message for the seller to review
-        offer_parts = []
-        if final_offer.get("price_per_unit"):
-            offer_parts.append(f"Price: ₹{final_offer['price_per_unit']}/unit")
-        if final_offer.get("quantity"):
-            offer_parts.append(f"Quantity: {final_offer['quantity']}")
-        if final_offer.get("lead_time_days"):
-            offer_parts.append(f"Delivery: {final_offer['lead_time_days']} days")
-        if final_offer.get("payment_terms"):
-            offer_parts.append(f"Payment: {final_offer['payment_terms']}")
-        final_offer["message"] = clean + ("\n\n" + " · ".join(offer_parts) if offer_parts else "")
-        clean = "Great! Let me confirm with my team and get back to you with our final offer."
-
     return {
         "message": clean,
         "needs_supplier_input": needs_input,
         "supplier_input_reason": input_reason,
-        "extracted_offer": extracted_offer,
+        "extracted_offer": None,
         "final_offer": final_offer,
         "is_deal_closed": False,
     }
@@ -315,11 +313,6 @@ def _extract_offer(text: str) -> dict | None:
         return result
     except Exception:
         return None
-
-
-def _detect_acceptance(message: str) -> bool:
-    keywords = ["accept", "confirm", "deal done", "we agree", "finaliz", "go ahead", "proceed", "approved", "perfect deal", "that works", "agreed"]
-    return any(kw in message.lower() for kw in keywords)
 
 
 def get_default_agent_config() -> dict:

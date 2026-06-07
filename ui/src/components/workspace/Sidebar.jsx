@@ -68,28 +68,44 @@ function RequirementFolder({ req, leads = [], onNavClick }) {
           </div>
 
           {/* Individual seller chats */}
-          {leads.map(lead => (
-            <div key={lead.id}
-              className={`sub-item ${route.view === 'chat' && route.leadId === lead.id ? 'active' : ''}`}
-              onClick={onNavClick(() => goChat(req.id, lead.id))}
-            >
-              <div style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background:
-                lead.status === 'deal_closed' ? '#4ade80' :
-                lead.status === 'awaiting_supplier_confirm' ? '#10b981' :
-                ['agent_initiated','negotiating'].includes(lead.status) ? '#60a5fa' :
-                (lead.ai_paused_for_buyer || lead.ai_paused_for_supplier) ? '#fbbf24' : 'rgba(255,255,255,0.2)'
-              }}/>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:11, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                  {lead.supplier_info?.trade_name || `Seller #${lead.supplier_id}`}
+          {leads.map(lead => {
+            const dotColor =
+              lead.status === 'deal_closed' ? '#10b981' :
+              lead.status === 'offer_ready' ? '#f59e0b' :
+              lead.status === 'awaiting_supplier_confirm' ? '#10b981' :
+              lead.status === 'pending_supplier_approval' ? '#a78bfa' :
+              ['agent_initiated','negotiating','renegotiating'].includes(lead.status) ? '#3b82f6' :
+              ['not_selected','declined'].includes(lead.status) ? '#6b7280' :
+              'rgba(255,255,255,0.2)'
+            const subLabel =
+              lead.status === 'offer_ready' ? 'decision needed' :
+              lead.status === 'deal_closed' ? 'deal closed' :
+              lead.status === 'awaiting_supplier_confirm' ? 'confirming...' :
+              lead.status === 'pending_supplier_approval' ? 'seller reviewing' :
+              lead.current_offer_price ? `₹${lead.current_offer_price.toLocaleString()}/unit` :
+              lead.status.replace(/_/g, ' ')
+            return (
+              <div key={lead.id}
+                className={`sub-item ${route.view === 'chat' && route.leadId === lead.id ? 'active' : ''}`}
+                onClick={onNavClick(() => goChat(req.id, lead.id))}
+              >
+                <div style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: dotColor }}/>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:11, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                    {lead.supplier_info?.trade_name || `Seller #${lead.supplier_id}`}
+                  </div>
+                  <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', marginTop:1 }}>
+                    {subLabel}
+                  </div>
                 </div>
-                <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', marginTop:1 }}>
-                  {lead.current_offer_price ? `₹${lead.current_offer_price.toLocaleString()}/unit` : lead.status.replace(/_/g,' ')}
-                </div>
+                {lead.status === 'offer_ready' && (
+                  <div style={{ fontSize:8, fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.12)', padding:'2px 5px', borderRadius:4, flexShrink:0 }}>
+                    ACT
+                  </div>
+                )}
               </div>
-              {lead.ai_paused_for_buyer && <div style={{ width:5, height:5, borderRadius:'50%', background:'#fbbf24', flexShrink:0 }}/>}
-            </div>
-          ))}
+            )
+          })}
         </>
       )}
     </div>
@@ -99,19 +115,31 @@ function RequirementFolder({ req, leads = [], onNavClick }) {
 function SellerLeadGroup({ leads, onNavClick }) {
   const { route, goLead, goDealChat } = useWorkspaceStore()
 
-  // Group by card_status
-  const pending   = leads.filter(l => ['pending','generating'].includes(l.card_status))
-  const draft     = leads.filter(l => ['draft','qa'].includes(l.card_status))
-  const submitted = leads.filter(l => l.card_status === 'submitted')
-  const selected  = leads.filter(l => l.card_status === 'selected' || l.status === 'deal_open')
-  const closed    = leads.filter(l => l.status === 'deal_closed')
-  const rejected  = leads.filter(l => l.card_status === 'rejected' || l.status === 'not_selected')
+  // Group by lead lifecycle status (negotiation flow)
+  const reviewOffer  = leads.filter(l => l.status === 'pending_supplier_approval')
+  const negotiating  = leads.filter(l => ['negotiating','renegotiating','agent_initiated','new'].includes(l.status) && l.status !== 'pending_supplier_approval')
+  const offerSent    = leads.filter(l => l.status === 'offer_ready')
+  const awaitConfirm = leads.filter(l => l.status === 'awaiting_supplier_confirm')
+  const closed       = leads.filter(l => l.status === 'deal_closed')
+  const notSelected  = leads.filter(l => ['not_selected','declined'].includes(l.status))
 
-  const cardStatusColor = (lead) => {
-    if (['deal_closed','selected'].includes(lead.card_status)) return '#4ade80'
-    if (lead.card_status === 'submitted') return '#a78bfa'
-    if (['draft','qa'].includes(lead.card_status)) return '#fbbf24'
+  const statusColor = (lead) => {
+    if (lead.status === 'pending_supplier_approval') return '#a78bfa'
+    if (lead.status === 'offer_ready') return '#3b82f6'
+    if (lead.status === 'awaiting_supplier_confirm') return '#f59e0b'
+    if (lead.status === 'deal_closed') return '#10b981'
+    if (['negotiating','renegotiating'].includes(lead.status)) return '#60a5fa'
+    if (['not_selected','declined'].includes(lead.status)) return '#6b7280'
     return 'rgba(255,255,255,0.2)'
+  }
+
+  const statusLabel = (lead) => {
+    if (lead.status === 'pending_supplier_approval') return 'review offer'
+    if (lead.status === 'offer_ready') return 'buyer reviewing'
+    if (lead.status === 'awaiting_supplier_confirm') return 'confirm deal'
+    if (lead.status === 'deal_closed') return 'closed'
+    if (lead.current_offer_price) return `₹${lead.current_offer_price.toLocaleString()}/unit`
+    return lead.status.replace(/_/g, ' ')
   }
 
   const Section = ({ title, items, color }) => items.length === 0 ? null : (
@@ -123,25 +151,25 @@ function SellerLeadGroup({ leads, onNavClick }) {
         <div key={lead.id}
           className={`sidebar-item ${(route.view === 'lead' || route.view === 'deal_chat') && route.leadId === lead.id ? 'active' : ''}`}
           onClick={onNavClick(() => {
-            if (lead.status === 'deal_open' || lead.status === 'deal_closed') {
+            if (lead.status === 'deal_closed') {
               goDealChat(lead.id, lead.conversation?.id)
             } else {
               goLead(lead.id)
             }
           })}
         >
-          <div style={{ width:26, height:26, borderRadius:7, background:'rgba(167,139,250,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <ShoppingCart size={12} color="#a78bfa"/>
+          <div style={{ width:26, height:26, borderRadius:7, background:`${statusColor(lead)}20`, border:`1px solid ${statusColor(lead)}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <ShoppingCart size={12} color={statusColor(lead)}/>
           </div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:12, fontWeight:600, color:'#fff' }}>
               {lead.requirement?.product || `Lead #${lead.id}`}
             </div>
             <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', marginTop:1 }}>
-              {lead.card_status?.replace(/_/g,' ')} · {timeAgo(lead.updated_at)}
+              {statusLabel(lead)} · {timeAgo(lead.updated_at)}
             </div>
           </div>
-          <div style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: cardStatusColor(lead) }}/>
+          <div style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: statusColor(lead) }}/>
         </div>
       ))}
     </div>
@@ -149,12 +177,12 @@ function SellerLeadGroup({ leads, onNavClick }) {
 
   return (
     <>
-      <Section title="Generate Card" items={pending}   color="#60a5fa"/>
-      <Section title="Draft / Q&A"   items={draft}     color="#fbbf24"/>
-      <Section title="Submitted"     items={submitted}  color="#a78bfa"/>
-      <Section title="Deal Open"     items={selected}   color="#34d399"/>
-      <Section title="Closed"        items={closed}     color="#4ade80"/>
-      <Section title="Not Selected"  items={rejected}   color="rgba(255,255,255,0.3)"/>
+      <Section title="Review Offer"      items={reviewOffer}  color="#a78bfa"/>
+      <Section title="Negotiating"       items={negotiating}  color="#60a5fa"/>
+      <Section title="Offer Sent"        items={offerSent}    color="#3b82f6"/>
+      <Section title="Confirm Deal"      items={awaitConfirm} color="#f59e0b"/>
+      <Section title="Closed"            items={closed}       color="#10b981"/>
+      <Section title="Not Selected"      items={notSelected}  color="#6b7280"/>
     </>
   )
 }

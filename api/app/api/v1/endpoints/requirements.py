@@ -303,7 +303,16 @@ async def _initiate_seller_conversation(lead_id: int):
                 seller_settings_md=seller_settings_md,
             )
             seller_msg_text = seller_opener.get("message", "")
-            logger.info(f"[CONV] Lead #{lead_id}: Supplier AI generated message ({len(seller_msg_text)} chars)")
+            final_offer = seller_opener.get("final_offer")
+            logger.info(f"[CONV] Lead #{lead_id}: Supplier AI generated message ({len(seller_msg_text)} chars), final_offer={'yes' if final_offer else 'no'}")
+
+            # Clean the seller message — remove tags before storing for display
+            clean_seller_msg = seller_msg_text
+            for tag in ["<FINAL_OFFER", "<OFFER ", "<NEEDS_SUPPLIER_INPUT"]:
+                if tag in clean_seller_msg:
+                    clean_seller_msg = clean_seller_msg[:clean_seller_msg.index(tag)].strip()
+            if not clean_seller_msg:
+                clean_seller_msg = "Let me put together an offer for you based on your requirements."
 
             # Create conversation
             conversation = Conversation(
@@ -311,62 +320,82 @@ async def _initiate_seller_conversation(lead_id: int):
                 buyer_id=lead.buyer_id,
                 supplier_id=lead.supplier_id,
                 mode="ai_negotiating",
-                ai_context=[{"role": "ai_supplier", "content": seller_msg_text}],
+                ai_context=[{"role": "ai_supplier", "content": clean_seller_msg}],
             )
             db.add(conversation)
             await db.flush()
 
-            # Save seller opening message
-            db.add(Message(
-                conversation_id=conversation.id,
-                role="ai_supplier",
-                message_type="text",
-                content=seller_msg_text,
-                structured_data={"offer": seller_opener.get("extracted_offer")},
-            ))
+            if final_offer:
+                # AI has enough info — go straight to seller approval (buyer sees nothing yet)
+                # Save a supplier-only message (not visible to buyer until approved)
+                db.add(Message(
+                    conversation_id=conversation.id,
+                    role="ai_supplier",
+                    message_type="text",
+                    content=clean_seller_msg,
+                    is_visible_to_buyer=False,
+                    is_visible_to_supplier=True,
+                ))
 
-            # Update lead with any initial offer
-            if seller_opener.get("extracted_offer"):
-                offer = seller_opener["extracted_offer"]
-                lead.current_offer_price = offer.get("price_per_unit")
-                lead.current_lead_time   = offer.get("lead_time_days")
+                offer_message = final_offer.get("message") or clean_seller_msg
+                lead.status = "pending_supplier_approval"
+                lead.ai_paused_for_supplier = True
+                lead.pending_offer_message = offer_message
+                lead.negotiation_round = 0
+                lead.max_negotiation_rounds = 999
+                if final_offer.get("price_per_unit"):
+                    lead.current_offer_price = final_offer["price_per_unit"]
+                if final_offer.get("lead_time_days"):
+                    lead.current_lead_time = final_offer["lead_time_days"]
 
-            await db.flush()
+                await db.commit()
+                logger.info(f"[CONV] Lead #{lead_id}: AI built offer immediately — waiting for seller approval ✓")
+                return  # No autonomous loop needed — seller decides next
 
-            # STEP 2: BUYER AI responds immediately
-            logger.info(f"[CONV] Lead #{lead_id}: Calling buyer AI to respond to seller's opening...")
-            buyer_response = await buyer_agent_respond(
-                conversation_history=[{"role": "ai_supplier", "content": seller_msg_text}],
-                supplier_message=seller_msg_text,
-                requirement=req_dict,
-                negotiation_round=1,
-                max_rounds=999,  # Unlimited — runs until deal confirmed
-                profile_md=buyer_profile_md,
-                buyer_settings_md=buyer_settings_md,
-            )
-            buyer_msg_text = buyer_response.get("message", "")
-            logger.info(f"[CONV] Lead #{lead_id}: Buyer AI generated response ({len(buyer_msg_text)} chars)")
+            else:
+                # AI needs more info — save discovery message and start buyer-supplier conversation
+                db.add(Message(
+                    conversation_id=conversation.id,
+                    role="ai_supplier",
+                    message_type="text",
+                    content=clean_seller_msg,
+                ))
 
-            db.add(Message(
-                conversation_id=conversation.id,
-                role="ai_buyer",
-                message_type="text",
-                content=buyer_msg_text,
-                structured_data={"offer": buyer_response.get("extracted_offer")},
-            ))
+                await db.flush()
 
-            # Update AI context
-            conversation.ai_context = [
-                {"role": "ai_supplier", "content": seller_msg_text},
-                {"role": "ai_buyer",    "content": buyer_msg_text},
-            ]
+                # STEP 2: BUYER AI responds to the discovery question
+                logger.info(f"[CONV] Lead #{lead_id}: Calling buyer AI to respond to seller's question...")
+                buyer_response = await buyer_agent_respond(
+                    conversation_history=[{"role": "ai_supplier", "content": clean_seller_msg}],
+                    supplier_message=clean_seller_msg,
+                    requirement=req_dict,
+                    negotiation_round=1,
+                    max_rounds=999,
+                    profile_md=buyer_profile_md,
+                    buyer_settings_md=buyer_settings_md,
+                )
+                buyer_msg_text = buyer_response.get("message", "")
+                logger.info(f"[CONV] Lead #{lead_id}: Buyer AI generated response ({len(buyer_msg_text)} chars)")
 
-            lead.status = "negotiating"
-            lead.negotiation_round = 1
-            lead.max_negotiation_rounds = 999  # Unlimited
+                db.add(Message(
+                    conversation_id=conversation.id,
+                    role="ai_buyer",
+                    message_type="text",
+                    content=buyer_msg_text,
+                ))
 
-            await db.commit()
-            logger.info(f"[CONV] Lead #{lead_id}: seller opened, buyer responded ✓")
+                # Update AI context
+                conversation.ai_context = [
+                    {"role": "ai_supplier", "content": clean_seller_msg},
+                    {"role": "ai_buyer",    "content": buyer_msg_text},
+                ]
+
+                lead.status = "negotiating"
+                lead.negotiation_round = 1
+                lead.max_negotiation_rounds = 999
+
+                await db.commit()
+                logger.info(f"[CONV] Lead #{lead_id}: seller opened, buyer responded ✓")
 
         except Exception as e:
             logger.error(f"[CONV] Lead #{lead_id}: error — {e}")

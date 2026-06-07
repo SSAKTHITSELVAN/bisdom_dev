@@ -134,9 +134,11 @@ class CloseDealRequest(BaseModel):
 
 class BuyerDecisionRequest(BaseModel):
     lead_id: int
-    # action: accept | renegotiate | manual_chat | decline
+    # action: accept | counter | renegotiate | manual_chat | decline
     action: str
     renegotiate_target: Optional[str] = None   # e.g. "Get price below 170"
+    counter_price: Optional[float] = None      # buyer's counter price per unit
+    counter_message: Optional[str] = None      # buyer's message with the counter
 
 
 class SupplierEscalationResponse(BaseModel):

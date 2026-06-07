@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getConvByLead, sendMessage, toggleChat, buyerDecision, supplierEscalation, supplierConfirm, supplierOfferApproval, suggestResponse } from '@/api/conversations'
+import { getConvByLead, sendMessage, toggleChat, buyerDecision, supplierConfirm, supplierOfferApproval, suggestResponse } from '@/api/conversations'
 import { getLead, getCounterpart } from '@/api/leads'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { useAuthStore } from '@/store/authStore'
@@ -99,132 +99,102 @@ function Bubble({ msg, isBuyer, counterpartName }) {
   )
 }
 
-function ActionPanel({ lead, isBuyer, onClose, onRefresh }) {
-  const [loading, setLoading] = useState(false)
-  const [renego, setRenego]   = useState('')
 
-  const act = async (fn, args, msg) => {
-    setLoading(true)
-    try { await fn(args); onRefresh(); onClose(); toast.success(msg || 'Done') }
-    catch(e) { toast.error(e?.response?.data?.detail || 'Failed') }
-    finally { setLoading(false) }
+function BuyerOfferBar({ lead, loading, act }) {
+  const [showCounter, setShowCounter] = useState(false)
+  const [counterPrice, setCounterPrice] = useState('')
+  const [counterMsg, setCounterMsg] = useState('')
+
+  const handleCounter = () => {
+    const price = parseFloat(counterPrice)
+    if (!price || price <= 0) return
+    act(
+      buyerDecision,
+      { lead_id: lead.id, action: 'counter', counter_price: price, counter_message: counterMsg || `Can you do ₹${price}/unit?` },
+      'Counter sent to supplier'
+    )
   }
 
-  const Btn = ({ onClick, bg, border, icon, title, sub, color = '#fff' }) => (
-    <button disabled={loading} onClick={onClick} style={{
-      display:'flex', alignItems:'center', gap:12, padding:'14px 16px',
-      background: bg, border: `1px solid ${border}`,
-      borderRadius:12, cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif', width:'100%', textAlign:'left'
-    }}>
-      {icon}
-      <div>
-        <div style={{ fontSize:13, fontWeight:600, color }}>{title}</div>
-        {sub && <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:2 }}>{sub}</div>}
+  if (showCounter) {
+    return (
+      <div style={{ margin: '8px 12px 0', padding: '14px 16px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <RefreshCw size={15} color="#3b82f6"/>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>Counter Offer</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>
+              Their price: ₹{lead.current_offer_price?.toLocaleString()}/unit
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 4, display: 'block' }}>Your price (₹/unit)</label>
+            <input
+              type="number"
+              value={counterPrice}
+              onChange={e => setCounterPrice(e.target.value)}
+              placeholder="e.g. 130"
+              style={{ width: '100%', padding: '10px 12px', fontSize: 13, fontWeight: 600, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', outline: 'none', fontFamily: 'Inter,system-ui,sans-serif', boxSizing: 'border-box' }}
+            />
+          </div>
+        </div>
+        <input
+          value={counterMsg}
+          onChange={e => setCounterMsg(e.target.value)}
+          placeholder="Optional message (e.g. We can pay upfront)"
+          style={{ width: '100%', padding: '10px 12px', fontSize: 12, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontFamily: 'Inter,system-ui,sans-serif', marginBottom: 12, boxSizing: 'border-box' }}
+        />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button disabled={!counterPrice || loading} onClick={handleCounter}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: counterPrice ? 'linear-gradient(135deg,#1d4ed8,#3b82f6)' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, cursor: counterPrice && !loading ? 'pointer' : 'default' }}>
+            <Send size={13} color={counterPrice ? '#fff' : 'rgba(255,255,255,0.3)'}/>
+            <span style={{ fontSize: 12, fontWeight: 700, color: counterPrice ? '#fff' : 'rgba(255,255,255,0.3)' }}>Send Counter</span>
+          </button>
+          <button onClick={() => setShowCounter(false)}
+            style={{ padding: '9px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: 'pointer' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>Cancel</span>
+          </button>
+        </div>
       </div>
-    </button>
-  )
+    )
+  }
+
+  const actionBtn = (gradient, outline) => ({
+    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+    background: gradient, border: outline ? `1px solid ${outline}` : 'none',
+    borderRadius: 8, cursor: loading ? 'wait' : 'pointer',
+    fontFamily: 'Inter,system-ui,sans-serif', flexShrink: 0
+  })
 
   return (
-    <div className="action-panel" style={{
-      width:300, borderLeft:'1px solid rgba(255,255,255,0.06)',
-      background:'#0c1524', display:'flex', flexDirection:'column', overflow:'hidden'
+    <div style={{
+      margin: '8px 12px 0', padding: '12px 14px',
+      background: 'linear-gradient(135deg,rgba(16,185,129,0.08),rgba(59,130,246,0.06))',
+      border: '1px solid rgba(16,185,129,0.25)', borderRadius: 12,
+      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
     }}>
-      <div style={{
-        padding:'20px 18px', borderBottom:'1px solid rgba(255,255,255,0.06)',
-        display:'flex', justifyContent:'space-between', alignItems:'center'
-      }}>
-        <span style={{ fontSize:14, fontWeight:700, color:'#fff' }}>Actions</span>
-        <button onClick={onClose} style={{ background:'rgba(255,255,255,0.06)', border:'none', cursor:'pointer', width:28, height:28, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <X size={13} color="rgba(255,255,255,0.5)" />
-        </button>
+      <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Shield size={16} color="#10b981"/>
       </div>
-
-      <div style={{ flex:1, overflowY:'auto', padding:'16px', display:'flex', flexDirection:'column', gap:10 }}>
-
-        {/* ── BUYER ACTIONS ── */}
-        {isBuyer && (
-          <>
-            <Btn
-              onClick={() => act(buyerDecision, {lead_id:lead.id, action:'accept'}, 'Sent to supplier for confirmation!')}
-              bg="rgba(16,185,129,0.06)" border="rgba(16,185,129,0.2)"
-              icon={<CheckCircle size={18} color="#10b981"/>}
-              title="Accept Deal" sub="Notify supplier — they must confirm"
-            />
-            <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:14 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                <RefreshCw size={15} color="#3b82f6"/>
-                <span style={{ fontSize:13, fontWeight:600, color:'#fff' }}>Renegotiate</span>
-              </div>
-              <input
-                style={{ width:'100%', padding:'10px 12px', fontSize:12, borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#fff', outline:'none', fontFamily:'Inter,system-ui,sans-serif', marginBottom:10, boxSizing:'border-box' }}
-                placeholder='e.g. "Get below ₹170/unit"'
-                value={renego} onChange={e => setRenego(e.target.value)}
-              />
-              <button disabled={!renego || loading}
-                onClick={() => act(buyerDecision, {lead_id:lead.id, action:'renegotiate', renegotiate_target:renego}, 'AI agent is renegotiating')}
-                style={{ width:'100%', padding:'10px 16px', fontSize:12, fontWeight:600, background: renego ? 'linear-gradient(135deg,#1d4ed8,#3b82f6)' : 'rgba(255,255,255,0.06)', color: renego ? '#fff' : 'rgba(255,255,255,0.3)', border:'none', borderRadius:8, cursor: renego ? 'pointer' : 'default', fontFamily:'Inter,system-ui,sans-serif' }}>
-                Send to AI Agent
-              </button>
-            </div>
-            <Btn
-              onClick={() => act(buyerDecision, {lead_id:lead.id, action:'manual_chat'}, 'Live chat enabled')}
-              bg="rgba(139,92,246,0.06)" border="rgba(139,92,246,0.2)"
-              icon={<MessageSquare size={18} color="#8b5cf6"/>}
-              title="Take Over Chat" sub="Speak directly to supplier"
-            />
-            <Btn
-              onClick={() => act(buyerDecision, {lead_id:lead.id, action:'decline'}, 'Supplier declined')}
-              bg="rgba(239,68,68,0.05)" border="rgba(239,68,68,0.15)"
-              icon={<X size={18} color="#ef4444"/>}
-              title="Decline" sub="Pass on this supplier" color="#ef4444"
-            />
-          </>
-        )}
-
-        {/* ── SUPPLIER ACTIONS ── */}
-        {!isBuyer && lead.status === 'awaiting_supplier_confirm' && (
-          <>
-            <Btn
-              onClick={() => act(supplierConfirm, {lead_id:lead.id, action:'confirm'}, '🎉 Deal confirmed!')}
-              bg="rgba(16,185,129,0.06)" border="rgba(16,185,129,0.2)"
-              icon={<CheckCircle size={18} color="#10b981"/>}
-              title="Confirm Deal" sub="Accept buyer's terms — deal closes"
-            />
-            <Btn
-              onClick={() => act(supplierConfirm, {lead_id:lead.id, action:'reject'}, 'Deal declined')}
-              bg="rgba(239,68,68,0.05)" border="rgba(239,68,68,0.15)"
-              icon={<X size={18} color="#ef4444"/>}
-              title="Decline" sub="Reject buyer's terms" color="#ef4444"
-            />
-          </>
-        )}
-
-        {!isBuyer && lead.ai_paused_for_supplier && lead.status !== 'awaiting_supplier_confirm' && (
-          <>
-            <div style={{ fontSize:12, color:'rgba(255,255,255,0.5)', padding:'0 4px 8px', lineHeight:1.5 }}>
-              AI paused and needs your input. Choose how to proceed:
-            </div>
-            <Btn
-              onClick={() => act(supplierEscalation, {lead_id:lead.id, action:'accept'}, 'AI will proceed')}
-              bg="rgba(16,185,129,0.06)" border="rgba(16,185,129,0.2)"
-              icon={<CheckCircle size={18} color="#10b981"/>}
-              title="Let AI Continue" sub="AI will respond on your behalf"
-            />
-            <Btn
-              onClick={() => act(buyerDecision, {lead_id:lead.id, action:'manual_chat'}, 'Live chat enabled — you can now reply')}
-              bg="rgba(139,92,246,0.06)" border="rgba(139,92,246,0.2)"
-              icon={<MessageSquare size={18} color="#8b5cf6"/>}
-              title="Reply Yourself" sub="Take over and chat directly"
-            />
-            <Btn
-              onClick={() => act(supplierEscalation, {lead_id:lead.id, action:'decline'}, 'Lead declined')}
-              bg="rgba(239,68,68,0.05)" border="rgba(239,68,68,0.15)"
-              icon={<X size={18} color="#ef4444"/>}
-              title="Decline Lead" sub="Not interested in this requirement" color="#ef4444"
-            />
-          </>
-        )}
+      <div style={{ flex: 1, minWidth: 140 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>Final offer from supplier</p>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: '2px 0 0' }}>
+          {lead.current_offer_price ? `₹${lead.current_offer_price.toLocaleString()}/unit` : 'Review the offer above'}
+        </p>
       </div>
+      <button disabled={loading} onClick={() => act(buyerDecision, {lead_id:lead.id, action:'accept'}, '🎉 Deal closed!')} style={actionBtn('linear-gradient(135deg,#059669,#10b981)')}>
+        <ThumbsUp size={13} color="#fff"/>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Accept</span>
+      </button>
+      <button disabled={loading} onClick={() => setShowCounter(true)} style={actionBtn('rgba(59,130,246,0.12)', 'rgba(59,130,246,0.3)')}>
+        <RefreshCw size={13} color="#60a5fa"/>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#60a5fa' }}>Counter</span>
+      </button>
+      <button disabled={loading} onClick={() => act(buyerDecision, {lead_id:lead.id, action:'decline'}, 'Declined')} style={actionBtn('rgba(255,255,255,0.04)', 'rgba(255,255,255,0.1)')}>
+        <X size={13} color="rgba(255,255,255,0.4)"/>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>Decline</span>
+      </button>
     </div>
   )
 }
@@ -344,26 +314,7 @@ function ConfirmationBar({ lead, isBuyer, onRefresh, onToggleChat }) {
   // ── BUYER: offer ready — supplier approved their offer, buyer decides ──
   if (isBuyer && lead.status === 'offer_ready') {
     return (
-      <div style={barStyle('linear-gradient(135deg,rgba(16,185,129,0.08),rgba(59,130,246,0.08))', 'rgba(16,185,129,0.25)')}>
-        <div style={iconBox('rgba(16,185,129,0.15)', 'rgba(16,185,129,0.25)')}>
-          <Shield size={16} color="#10b981"/>
-        </div>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>Supplier sent you a final offer</p>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: '2px 0 0' }}>
-            {lead.current_offer_price ? `₹${lead.current_offer_price.toLocaleString()}/unit · ` : ''}
-            Accept to close the deal, or decline
-          </p>
-        </div>
-        <button disabled={loading} onClick={() => act(buyerDecision, {lead_id:lead.id, action:'accept'}, '🎉 Deal closed!')} style={actionBtn('linear-gradient(135deg,#059669,#10b981)')}>
-          <ThumbsUp size={13} color="#fff"/>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Accept Deal</span>
-        </button>
-        <button disabled={loading} onClick={() => act(buyerDecision, {lead_id:lead.id, action:'decline'}, 'Declined')} style={actionBtn('rgba(255,255,255,0.06)', 'rgba(255,255,255,0.12)')}>
-          <X size={13} color="rgba(255,255,255,0.5)"/>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Decline</span>
-        </button>
-      </div>
+      <BuyerOfferBar lead={lead} loading={loading} act={act}/>
     )
   }
 
@@ -502,7 +453,6 @@ export default function ConversationView({ leadId }) {
   const [msg, setMsg]           = useState('')
   const [sending, setSending]   = useState(false)
   const [chatOn, setChatOn]     = useState(false)
-  const [showActions, setShowActions] = useState(false)
   const [suggesting, setSuggesting]   = useState(false)
   const bottomRef = useRef(null)
   const { route, goRequirement, goWelcome } = useWorkspaceStore()
@@ -589,12 +539,6 @@ export default function ConversationView({ leadId }) {
     }
   }
 
-  const canAct = lead && (
-    (isBuyer && ['offer_ready','negotiating','agent_initiated','renegotiating'].includes(lead.status)) ||
-    (isBuyer && lead.ai_paused_for_buyer) ||
-    (!isBuyer && lead.status === 'awaiting_supplier_confirm') ||
-    (!isBuyer && lead.ai_paused_for_supplier)
-  )
 
   return (
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
@@ -643,18 +587,6 @@ export default function ConversationView({ leadId }) {
             }
           </button>
 
-          {canAct && (
-            <button onClick={() => setShowActions(p => !p)}
-              style={{
-                display:'flex', alignItems:'center', gap:4, padding:'6px 10px',
-                background: showActions ? 'rgba(245,158,11,0.15)' : 'rgba(245,158,11,0.08)',
-                border:'1px solid rgba(245,158,11,0.25)',
-                borderRadius:7, cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif', flexShrink:0
-              }}>
-              <AlertTriangle size={13} color="#f59e0b"/>
-              <span className="hide-mobile" style={{ fontSize:10, fontWeight:700, color:'#f59e0b' }}>Actions</span>
-            </button>
-          )}
 
           <button onClick={fetch} style={{
             background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
@@ -752,8 +684,7 @@ export default function ConversationView({ leadId }) {
                   <div style={{ maxWidth:'85%', textAlign:'center', padding:'14px 18px', background:'rgba(167,139,250,0.08)', border:'1px solid rgba(167,139,250,0.2)', borderRadius:14 }}>
                     <AlertTriangle size={20} color="#a78bfa" style={{ margin:'0 auto 6px' }}/>
                     <p style={{ fontSize:12, fontWeight:600, color:'#a78bfa', marginBottom:3 }}>Buyer accepted — confirm or reject</p>
-                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use Actions above to confirm or reject the deal.</p>
-                    <button onClick={() => setShowActions(true)} style={{ marginTop:8, fontSize:11, fontWeight:700, color:'#a78bfa', background:'rgba(167,139,250,0.15)', border:'1px solid rgba(167,139,250,0.3)', borderRadius:6, padding:'6px 14px', cursor:'pointer' }}>Open Actions</button>
+                    <p style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}>Use the confirmation bar at the top to respond.</p>
                   </div>
                 </div>
               )
@@ -854,10 +785,6 @@ export default function ConversationView({ leadId }) {
         </div>
       </div>
 
-      {/* Actions panel */}
-      {showActions && lead && (
-        <ActionPanel lead={lead} isBuyer={isBuyer} onClose={() => setShowActions(false)} onRefresh={fetch}/>
-      )}
     </div>
   )
 }
