@@ -6,34 +6,60 @@ import Spinner from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
 
 const SUGGESTIONS = [
-  '200 cotton t-shirts, 100% cotton 180GSM, black, sizes S-XL, Tirupur, under ₹200/piece',
-  '500 meters polyester fabric, 120GSM, white, delivery to Mumbai in 10 days',
-  '1000 bed sheets, cotton 300TC, queen size, Coimbatore, budget ₹350/piece',
+  'I need 500 cotton t-shirts, round neck, for my brand',
+  '1000 meters of polyester fabric, 120 GSM, white',
+  '200 polo t-shirts for corporate gifting',
+  'Bed sheets in bulk — 300 TC cotton, queen size',
 ]
 
 function getQuickReplies(lastAiMsg) {
   if (!lastAiMsg) return []
   const lower = lastAiMsg.toLowerCase()
-  if (lower.includes('budget') || lower.includes('price') || lower.includes('willing to pay'))
-    return ['Under ₹100/piece', 'Under ₹200/piece', 'Under ₹500/piece', 'No budget limit']
-  if (lower.includes('material') || lower.includes('fabric'))
-    return ['Cotton', 'Polyester', 'Cotton-poly blend', 'No preference']
+
+  // Budget related
+  if (lower.includes('budget') || lower.includes('price') || lower.includes('willing to pay') || lower.includes('spend'))
+    return ['Under ₹150/piece', 'Under ₹250/piece', '₹500-800/piece', 'Flexible / market rate']
+
+  // Material / fabric
+  if (lower.includes('material') || lower.includes('fabric') || lower.includes('cotton') || lower.includes('polyester'))
+    return ['100% Cotton', 'Polyester', 'Cotton-poly blend (CVC)', 'No preference']
+
+  // GSM
+  if (lower.includes('gsm') || lower.includes('thickness') || lower.includes('weight'))
+    return ['160 GSM (light)', '180 GSM (standard)', '220 GSM (premium)', '240+ GSM (heavy)']
+
+  // Color
   if (lower.includes('color') || lower.includes('colour'))
-    return ['White', 'Black', 'Navy blue', 'No preference']
+    return ['White', 'Black', 'Navy blue', 'Multiple colors']
+
+  // Size
   if (lower.includes('size'))
-    return ['S, M, L, XL', 'Free size', 'Mixed sizes', 'Not sure']
-  if (lower.includes('deliver') || lower.includes('location') || lower.includes('city') || lower.includes('where'))
-    return ['Mumbai', 'Delhi', 'Chennai', 'Bangalore']
-  if (lower.includes('how soon') || lower.includes('deadline') || lower.includes('days') || lower.includes('when'))
-    return ['7 days', '15 days', '30 days', 'No rush']
-  if (lower.includes('one-time') || lower.includes('recurring') || lower.includes('order type') || lower.includes('repeat'))
-    return ['One-time', 'Monthly recurring', 'Quarterly']
-  if (lower.includes('packaging'))
-    return ['Standard', 'Custom branded', 'Bulk packaging', 'No preference']
-  if (lower.includes('confirm') || lower.includes('look correct') || lower.includes('everything look'))
-    return ['Yes, confirm', 'Change budget', 'Change quantity']
-  if (lower.includes('anything else') || lower.includes('additional'))
-    return ['That\'s all, post it', 'Need GST invoice', 'Need sample first']
+    return ['S, M, L, XL', 'S to XXL (full range)', 'Free size', 'Custom sizes']
+
+  // Location / delivery
+  if (lower.includes('deliver') || lower.includes('location') || lower.includes('city') || lower.includes('where') || lower.includes('ship'))
+    return ['Tirupur', 'Mumbai', 'Delhi NCR', 'Bangalore']
+
+  // Timeline
+  if (lower.includes('how soon') || lower.includes('deadline') || lower.includes('days') || lower.includes('when') || lower.includes('urgent'))
+    return ['Within 7 days', '15 days', '30 days', 'No rush']
+
+  // Specs / type
+  if (lower.includes('type') || lower.includes('style') || lower.includes('neck') || lower.includes('collar'))
+    return ['Round neck', 'Polo / collar', 'V-neck', 'Henley']
+
+  // Confirmation
+  if (lower.includes('confirm') || lower.includes('look correct') || lower.includes('look good') || lower.includes('summary'))
+    return ['Yes, confirm', 'Change quantity', 'Change specs', 'Add more details']
+
+  // Anything else / wrap up
+  if (lower.includes('anything else') || lower.includes('additional') || lower.includes('more details'))
+    return ['That\'s all, post it', 'Need sample first', 'Add print/embroidery', 'Skip']
+
+  // Generic skip
+  if (lower.includes('preference') || lower.includes('specific'))
+    return ['No preference', 'Standard quality', 'Skip this']
+
   return []
 }
 
