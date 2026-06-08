@@ -1,10 +1,8 @@
-import { useState } from 'react'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import StatusBadge from '@/components/ui/StatusBadge'
-import BuyerCardsView from './BuyerCardsView'
 import {
   Bot, Package, TrendingDown, CheckCircle, AlertTriangle,
-  Clock, MessageSquare, ChevronRight, Zap, Shield, ThumbsUp
+  ChevronRight, ThumbsUp
 } from 'lucide-react'
 
 function LeadRow({ lead, onClick }) {
@@ -68,7 +66,6 @@ function LeadRow({ lead, onClick }) {
 
 export default function RequirementOverview({ req, leads = [] }) {
   const { goChat, goGeneralChat } = useWorkspaceStore()
-  const [tab, setTab] = useState('overview')
 
   if (!req) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a1628' }}>
@@ -85,7 +82,6 @@ export default function RequirementOverview({ req, leads = [] }) {
   const closed = leads.filter(l => l.status === 'deal_closed')
   const withOffers = leads.filter(l => l.current_offer_price)
   const bestPrice = withOffers.length > 0 ? Math.min(...withOffers.map(l => l.current_offer_price)) : null
-  const submitted = leads.filter(l => ['submitted', 'selected', 'rejected'].includes(l.card_status))
 
   // Sort: needs action first, then active, then closed, then rest
   const sorted = [...leads].sort((a, b) => {
@@ -162,21 +158,8 @@ export default function RequirementOverview({ req, leads = [] }) {
           return null
         })()}
 
-        {/* Tabs + Ask AI */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {[
-              ['overview', `Suppliers (${leads.length})`],
-              ...(submitted.length > 0 ? [['cards', `Cards (${submitted.length})`]] : []),
-            ].map(([key, label]) => (
-              <button key={key} onClick={() => setTab(key)} style={{
-                padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)',
-                background: tab === key ? 'rgba(96,165,250,0.15)' : 'transparent',
-                color: tab === key ? '#60a5fa' : 'rgba(255,255,255,0.5)',
-                cursor: 'pointer', fontFamily: 'Inter,system-ui,sans-serif', fontSize: 12, fontWeight: 600
-              }}>{label}</button>
-            ))}
-          </div>
+        {/* Ask AI button */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           <button onClick={() => goGeneralChat(req.id)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 8, cursor: 'pointer', fontFamily: 'Inter,system-ui,sans-serif', fontSize: 12, fontWeight: 600, color: '#60a5fa' }}>
             <Bot size={13}/> Ask AI
@@ -184,10 +167,9 @@ export default function RequirementOverview({ req, leads = [] }) {
         </div>
       </div>
 
-      {/* Tab content */}
+      {/* Supplier list */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {tab === 'overview' && (
-          <div style={{ padding: '16px 24px' }}>
+        <div style={{ padding: '16px 24px' }}>
             {leads.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(255,255,255,0.3)' }}>
                 <Bot size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }}/>
@@ -254,8 +236,6 @@ export default function RequirementOverview({ req, leads = [] }) {
               </>
             )}
           </div>
-        )}
-        {tab === 'cards' && <BuyerCardsView requirementId={req.id} />}
       </div>
     </div>
   )
