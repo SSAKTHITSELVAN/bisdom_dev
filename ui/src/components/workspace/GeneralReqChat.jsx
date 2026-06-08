@@ -5,12 +5,12 @@ import toast from 'react-hot-toast'
 import { Send, Bot, Sparkles } from 'lucide-react'
 
 const QUICK_ASKS = [
-  'Summarize all seller negotiations so far',
-  'Which seller has the best offer right now?',
-  'Compare all sellers on price and lead time',
-  'Which seller should I accept and why?',
-  'Are there any red flags I should know about?',
-  'What is the total savings vs my budget?',
+  'Who has the best price right now?',
+  'Which supplier should I go with and why?',
+  'Compare all offers — price, delivery, reliability',
+  'Any red flags or concerns?',
+  'How much am I saving vs my budget?',
+  'What should I counter-offer?',
 ]
 
 function Bubble({ msg }) {
