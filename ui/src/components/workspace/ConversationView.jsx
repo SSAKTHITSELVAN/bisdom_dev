@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { getConvByLead, sendMessage, toggleChat, buyerDecision, supplierConfirm, supplierOfferApproval, suggestResponse } from '@/api/conversations'
 import { getLead, getCounterpart } from '@/api/leads'
+import { getReviewContextForLead, submitReview } from '@/api/reviews'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { useAuthStore } from '@/store/authStore'
+import CompanyProfile from './CompanyProfile'
 import StatusBadge from '@/components/ui/StatusBadge'
 import Spinner from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
 import {
   Send, Bot, User, AlertTriangle, CheckCircle,
   RefreshCw, ChevronLeft, ToggleLeft, ToggleRight, X,
-  Sparkles, MessageSquare, Zap, Package, ThumbsUp, ThumbsDown, Clock, Shield
+  Sparkles, MessageSquare, Zap, Package, ThumbsUp, ThumbsDown, Clock, Shield, Star
 } from 'lucide-react'
 
 function getRoles(isBuyer, counterpartName) {
@@ -445,6 +447,128 @@ function ChatSummaryStrip({ lead, isBuyer, counterpart }) {
   )
 }
 
+function RatingPrompt({ leadId, onSubmitted }) {
+  const [reviewCtx, setReviewCtx] = useState(null)
+  const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [reviewText, setReviewText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    getReviewContextForLead(leadId)
+      .then(res => {
+        setReviewCtx(res.data)
+        if (res.data.has_reviewed) setSubmitted(true)
+      })
+      .catch(() => {})
+  }, [leadId])
+
+  if (!reviewCtx || !reviewCtx.deal_id) return null
+  if (submitted) {
+    return (
+      <div style={{
+        margin: '12px 24px', padding: '14px 18px', borderRadius: 14,
+        background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)',
+        display: 'flex', alignItems: 'center', gap: 10
+      }}>
+        <CheckCircle size={16} color="#10b981" />
+        <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>
+          Thanks for your review{reviewCtx.my_rating ? ` (${reviewCtx.my_rating}/5)` : ''}!
+        </span>
+      </div>
+    )
+  }
+
+  const handleSubmit = async () => {
+    if (!rating || submitting) return
+    setSubmitting(true)
+    try {
+      await submitReview({ deal_id: reviewCtx.deal_id, rating, review_text: reviewText || null })
+      setSubmitted(true)
+      toast.success('Review submitted!')
+      if (onSubmitted) onSubmitted()
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Failed to submit review')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div style={{
+      margin: '12px 24px', padding: '18px 20px', borderRadius: 14,
+      background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(139,92,246,0.04))',
+      border: '1px solid rgba(245,158,11,0.2)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <Star size={18} color="#f59e0b" fill="#f59e0b" />
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>Rate this deal</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>How was your experience?</p>
+        </div>
+      </div>
+
+      {/* Stars */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        {[1, 2, 3, 4, 5].map(i => (
+          <button
+            key={i}
+            onMouseEnter={() => setHoverRating(i)}
+            onMouseLeave={() => setHoverRating(0)}
+            onClick={() => setRating(i)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+              transform: (hoverRating || rating) >= i ? 'scale(1.15)' : 'scale(1)',
+              transition: 'transform 0.15s'
+            }}
+          >
+            <Star
+              size={28}
+              fill={(hoverRating || rating) >= i ? '#f59e0b' : 'transparent'}
+              color={(hoverRating || rating) >= i ? '#f59e0b' : 'rgba(255,255,255,0.2)'}
+            />
+          </button>
+        ))}
+      </div>
+
+      {/* Review text */}
+      <textarea
+        value={reviewText}
+        onChange={e => setReviewText(e.target.value)}
+        placeholder="Write a short review (optional)..."
+        style={{
+          width: '100%', minHeight: 60, padding: '10px 14px', fontSize: 12,
+          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 10, color: '#fff', outline: 'none', resize: 'vertical',
+          fontFamily: 'Inter,system-ui,sans-serif', lineHeight: 1.5, boxSizing: 'border-box'
+        }}
+      />
+
+      {/* Submit */}
+      <button
+        onClick={handleSubmit}
+        disabled={!rating || submitting}
+        style={{
+          marginTop: 12, display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 20px', borderRadius: 10, border: 'none', cursor: rating && !submitting ? 'pointer' : 'default',
+          background: rating ? 'linear-gradient(135deg, #d97706, #f59e0b)' : 'rgba(255,255,255,0.06)',
+          boxShadow: rating ? '0 2px 8px rgba(217,119,6,0.3)' : 'none',
+          fontFamily: 'Inter,system-ui,sans-serif'
+        }}
+      >
+        {submitting
+          ? <Spinner size={13} />
+          : <Star size={13} color={rating ? '#fff' : 'rgba(255,255,255,0.3)'} />
+        }
+        <span style={{ fontSize: 12, fontWeight: 700, color: rating ? '#fff' : 'rgba(255,255,255,0.3)' }}>
+          Submit Review
+        </span>
+      </button>
+    </div>
+  )
+}
+
 export default function ConversationView({ leadId }) {
   const [conv, setConv]         = useState(null)
   const [lead, setLead]         = useState(null)
@@ -454,6 +578,7 @@ export default function ConversationView({ leadId }) {
   const [sending, setSending]   = useState(false)
   const [chatOn, setChatOn]     = useState(false)
   const [suggesting, setSuggesting]   = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
   const bottomRef = useRef(null)
   const { route, goRequirement, goWelcome } = useWorkspaceStore()
   const currentUser = useAuthStore(s => s.user)
@@ -540,6 +665,14 @@ export default function ConversationView({ leadId }) {
   }
 
 
+  if (showProfile) {
+    return (
+      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+        <CompanyProfile leadId={leadId} onClose={() => setShowProfile(false)} />
+      </div>
+    )
+  }
+
   return (
     <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
       <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#0a1225', overflow:'hidden' }}>
@@ -562,7 +695,10 @@ export default function ConversationView({ leadId }) {
 
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:14, fontWeight:700, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              <span
+                onClick={() => setShowProfile(true)}
+                style={{ fontSize:14, fontWeight:700, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', cursor:'pointer', borderBottom:'1px dashed rgba(255,255,255,0.2)' }}
+              >
                 {counterpart?.trade_name || (isBuyer ? `Seller #${lead?.supplier_id || leadId}` : `Buyer #${lead?.buyer_id || leadId}`)}
               </span>
               {lead && <StatusBadge status={lead.status}/>}
@@ -710,6 +846,12 @@ export default function ConversationView({ leadId }) {
               )
             return null
           })()}
+
+          {/* Rating prompt after deal closure */}
+          {lead?.status === 'deal_closed' && (
+            <RatingPrompt leadId={leadId} onSubmitted={fetch} />
+          )}
+
           <div ref={bottomRef}/>
         </div>
 

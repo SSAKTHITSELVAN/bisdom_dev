@@ -259,14 +259,24 @@ async def get_counterpart_profile(
     # Return limited profile info (privacy — don't expose everything before deal)
     is_deal_closed = lead.status == "deal_closed"
     return {
+        "user_id": counterpart_id,
         "trade_name": profile.trade_name,
         "business_type": profile.business_type,
+        "legal_name": profile.legal_name if is_deal_closed else None,
+        "gstin": profile.gstin if is_deal_closed else None,
         "state": profile.state,
         "city": profile.city if is_deal_closed else None,
+        "pincode": profile.pincode if is_deal_closed else None,
+        "address": profile.address if is_deal_closed else None,
         "reliability_score": profile.reliability_score,
         "product_categories": profile.product_categories,
         "certifications": profile.certifications,
+        "capabilities": profile.capabilities,
+        "pricing_bands": profile.pricing_bands,
+        "payment_terms": profile.payment_terms,
+        "serviceable_locations": profile.serviceable_locations,
+        "nature_of_business": profile.nature_of_business,
         "business_summary": profile.profile_summary,
-        # Full contact only after deal closed
+        "registration_date": profile.registration_date,
         "contact_revealed": is_deal_closed,
     }
